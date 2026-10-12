@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nerve Centre Roadmap</title>
+<style>
+  :root {
+    --bg: #f7f6f2;
+    --surface: #ffffff;
+    --text: #1d1d1b;
+    --muted: #64625c;
+    --border: #dddad2;
+    --accent: #2f6f5e;
+    --accent-soft: #e3efe9;
+    --future: #8a8780;
+    --tag-bg: #efede7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #161715;
+      --surface: #1f201e;
+      --text: #ecebe6;
+      --muted: #a3a19a;
+      --border: #3a3b37;
+      --accent: #7fc3ad;
+      --accent-soft: #23332d;
+      --future: #8c8a84;
+      --tag-bg: #2a2b28;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #161715;
+    --surface: #1f201e;
+    --text: #ecebe6;
+    --muted: #a3a19a;
+    --border: #3a3b37;
+    --accent: #7fc3ad;
+    --accent-soft: #23332d;
+    --future: #8c8a84;
+    --tag-bg: #2a2b28;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.55;
+    font-size: 16px;
+  }
+  main { max-width: 920px; margin: 0 auto; padding: 48px 16px 64px; }
+  header { margin-bottom: 40px; }
+  .eyebrow { color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin: 0 0 8px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 12px; letter-spacing: -.01em; }
+  .lede { color: var(--muted); font-size: 18px; margin: 0; max-width: 680px; }
+  h2 { font-size: 22px; margin: 48px 0 16px; letter-spacing: -.005em; }
+  h3 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 0 0 12px; }
+  .muted { color: var(--muted); }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .decision h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+  .decision p { margin: 0; font-weight: 500; }
+
+  /* Roadmap */
+  .timeline { list-style: none; margin: 0; padding: 0; position: relative; }
+  .timeline::before {
+    content: ""; position: absolute; left: 15px; top: 8px; bottom: 8px;
+    width: 2px; background: var(--border);
+  }
+  .phase { position: relative; padding-left: 48px; margin-bottom: 16px; }
+  .phase .dot {
+    position: absolute; left: 6px; top: 22px; width: 20px; height: 20px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; color: var(--accent);
+  }
+  .phase.first .dot { background: var(--accent); color: var(--surface); }
+  .phase.later .dot { border-color: var(--future); color: var(--future); border-style: dashed; }
+  .phase-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; margin-bottom: 6px; }
+  .when { font-size: 13px; color: var(--muted); background: var(--tag-bg); padding: 2px 8px; border-radius: 999px; }
+  .phase ul { margin: 0; padding-left: 18px; }
+  .phase li { margin-bottom: 2px; }
+  .phase .outcome { margin-top: 10px; font-size: 14px; color: var(--accent); font-weight: 500; }
+  .phase.later .outcome { color: var(--muted); }
+
+  /* Architecture */
+  .diagram { padding: 12px; }
+  .diagram svg { width: 100%; height: auto; display: block; }
+  .box { fill: var(--surface); stroke: var(--text); stroke-width: 1.4; }
+  .box.ext { fill: var(--tag-bg); stroke: var(--muted); }
+  .box.bus { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.8; }
+  .box.future { fill: none; stroke: var(--future); stroke-dasharray: 5 4; }
+  .zone { fill: none; stroke: var(--muted); stroke-dasharray: 6 5; stroke-width: 1.2; }
+  .t-title { fill: var(--text); font-size: 14px; font-weight: 600; }
+  .t-sub { fill: var(--muted); font-size: 12px; }
+  .t-zone { fill: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+  .t-future { fill: var(--future); }
+  .edge { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+  .edge.future { stroke: var(--future); stroke-dasharray: 5 4; }
+  .arrowhead { fill: var(--muted); }
+  .arrowhead-future { fill: var(--future); }
+  .t-edge { fill: var(--muted); font-size: 11px; }
+
+  .components { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 16px; }
+  .components.two { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .components .card p { margin: 0; color: var(--muted); font-size: 15px; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--future); border: 1px dashed var(--future); border-radius: 4px; padding: 0 6px; margin-left: 6px; vertical-align: 2px; }
+
+  .principles { margin: 0; padding-left: 20px; }
+  .principles li { margin-bottom: 8px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 13px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  tr:last-child td { border-bottom: none; }
+  .table-wrap { overflow-x: auto; padding: 4px 8px; }
+
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; background: var(--tag-bg); padding: 1px 5px; border-radius: 4px; }
+  .sub-h { margin: 28px 0 6px; font-size: 17px; }
+  .card.code { padding: 16px 20px; overflow-x: auto; }
+  .card.code pre { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13.5px; line-height: 1.6; color: var(--text); }
+  .card.code .c { color: var(--muted); }
+  .small { font-size: 14px; margin-top: 10px; }
+  @media (max-width: 560px) {
+    h1 { font-size: 27px; }
+    .lede { font-size: 16px; }
+    main { padding-top: 32px; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <p class="eyebrow">Personal project · Plan</p>
+  <h1>nerve-centre: roadmap and architecture</h1>
+  <p class="lede">A Raspberry Pi 5 "nerve centre" that collects data from home projects. It starts with a colour e-ink commute dashboard (TfL and weather) and later grows into greenhouse automation.</p>
+</header>
+
+<section>
+  <h2>Key decisions</h2>
+  <div class="grid">
+    <div class="card decision"><h3>Hub</h3><p>Raspberry Pi 5 (4 GB), booting from an NVMe SSD, running Raspberry Pi OS Lite (64-bit)</p></div>
+    <div class="card decision"><h3>Language</h3><p>Rust wherever possible. The display client is Python, to use Pimoroni's driver</p></div>
+    <div class="card decision"><h3>Event bus</h3><p>Eclipse Mosquitto (MQTT)</p></div>
+    <div class="card decision"><h3>Storage</h3><p>SQLite (WAL mode), written only by the data service</p></div>
+    <div class="card decision"><h3>Display</h3><p>Pimoroni Inky Impression 7.3" (6-colour Spectra 6 e-ink), image rendered on the hub</p></div>
+    <div class="card decision"><h3>First project</h3><p>Commute dashboard: TfL line status and weather</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Roadmap</h2>
+  <ol class="timeline">
+    <li class="phase first">
+      <span class="dot">0</span>
+      <div class="card">
+        <div class="phase-head"><h3>Set up the hub</h3><span class="when">Start here</span></div>
+        <ul>
+          <li>Hardware ordered: Active Cooler, M.2 HAT+ with a 256 GB 2242 NVMe SSD, and the Inky Impression 7.3" display. Check you have the official 27 W power supply</li>
+          <li>Flash Raspberry Pi OS Lite (64-bit) to the SSD with Raspberry Pi Imager, setting the hostname, user and SSH key</li>
+          <li>Fit the HAT, SSD and cooler, then update the bootloader and set it to boot from NVMe</li>
+          <li>Reserve the Pi's IP address in the router and turn on automatic security updates</li>
+        </ul>
+      </div>
+    </li>
+    <li class="phase">
+      <span class="dot">1</span>
+      <div class="card">
+        <div class="phase-head"><h3>Dashboard software</h3><span class="when">Software only</span></div>
+        <ul>
+          <li>Pollers for TfL (current and planned disruptions) and the weather forecast</li>
+          <li>Mosquitto on the hub, plus a data service that logs every event to SQLite</li>
+          <li>Renderer that draws the dashboard as a PNG and serves it over HTTP</li>
+        </ul>
+        <p class="outcome">Useful straight away: check the dashboard in a browser before leaving.</p>
+      </div>
+    </li>
+    <li class="phase">
+      <span class="dot">2</span>
+      <div class="card">
+        <div class="phase-head"><h3>E-ink display live</h3><span class="when">Needs the display</span></div>
+        <ul>
+          <li>A small Python client on the display Pi fetches the PNG and, using Pimoroni's <code>inky</code> library, refreshes the panel only when it has changed</li>
+          <li>Prototype on the spare Pi 4, move to a small board later</li>
+          <li>Frame and mount it by the door</li>
+        </ul>
+        <p class="outcome">The dashboard is on the wall.</p>
+      </div>
+    </li>
+    <li class="phase">
+      <span class="dot">3</span>
+      <div class="card">
+        <div class="phase-head"><h3>Greenhouse on the bench</h3><span class="when">Needs sensors</span></div>
+        <ul>
+          <li>Soil moisture and climate sensors on ESP32 nodes, publishing to the hub</li>
+          <li>Watering controller with a float-switch cutoff and a local fallback schedule</li>
+          <li>Add a greenhouse panel to the dashboard</li>
+        </ul>
+        <p class="outcome">Built and tested indoors before it goes in the greenhouse.</p>
+      </div>
+    </li>
+    <li class="phase">
+      <span class="dot">4</span>
+      <div class="card">
+        <div class="phase-head"><h3>Greenhouse install</h3><span class="when">Growing season</span></div>
+        <ul>
+          <li>Move the tested setup into the greenhouse in time for the growing season</li>
+        </ul>
+        <p class="outcome">Watering runs on soil moisture instead of a fixed timer.</p>
+      </div>
+    </li>
+    <li class="phase later">
+      <span class="dot">+</span>
+      <div class="card">
+        <div class="phase-head"><h3>Later, optional</h3><span class="when">Optional</span></div>
+        <ul>
+          <li>Notifications and a commute status light by the door</li>
+          <li>Analytics through the data service, such as commute reliability over time</li>
+          <li>More data sources as new projects come along</li>
+        </ul>
+      </div>
+    </li>
+  </ol>
+</section>
+
+<section>
+  <h2>System architecture</h2>
+  <p class="muted">Everything except the display runs on the Pi 5. Services talk only through the event bus, so the dashboard keeps working even if storage has a problem.</p>
+
+  <div class="card diagram">
+    <svg viewBox="0 0 710 530" role="img" aria-label="Architecture: external APIs feed pollers, which publish to Mosquitto. The data service and the renderer both subscribe. The renderer serves a PNG to the display Pi. Greenhouse nodes and analytics are future additions.">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="arrowhead"/>
+        </marker>
+        <marker id="arrow-f" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" class="arrowhead-future"/>
+        </marker>
+      </defs>
+
+      <!-- Hub zone -->
+      <rect class="zone" x="170" y="90" width="530" height="320" rx="14"/>
+      <text class="t-zone" x="186" y="114">Pi 5 hub</text>
+
+      <!-- External APIs -->
+      <rect class="box ext" x="305" y="10" width="260" height="56" rx="10"/>
+      <text class="t-title" x="435" y="34" text-anchor="middle">External APIs</text>
+      <text class="t-sub" x="435" y="52" text-anchor="middle">TfL · weather forecast</text>
+
+      <!-- Pollers -->
+      <rect class="box" x="335" y="120" width="200" height="56" rx="10"/>
+      <text class="t-title" x="435" y="144" text-anchor="middle">Pollers</text>
+      <text class="t-sub" x="435" y="162" text-anchor="middle">Fetch data, publish events</text>
+
+      <!-- Mosquitto -->
+      <rect class="box bus" x="320" y="210" width="230" height="56" rx="10"/>
+      <text class="t-title" x="435" y="234" text-anchor="middle">Mosquitto</text>
+      <text class="t-sub" x="435" y="252" text-anchor="middle">Event bus · retained latest state</text>
+
+      <!-- Greenhouse nodes (future) -->
+      <rect class="box future" x="10" y="210" width="140" height="56" rx="10"/>
+      <text class="t-title t-future" x="80" y="234" text-anchor="middle">Greenhouse</text>
+      <text class="t-sub" x="80" y="252" text-anchor="middle">ESP32 nodes · future</text>
+
+      <!-- Data service -->
+      <rect class="box" x="195" y="320" width="210" height="66" rx="10"/>
+      <text class="t-title" x="300" y="344" text-anchor="middle">Data service</text>
+      <text class="t-sub" x="300" y="362" text-anchor="middle">Logs every event</text>
+      <text class="t-sub" x="300" y="378" text-anchor="middle">SQLite (sole writer)</text>
+
+      <!-- Renderer -->
+      <rect class="box" x="465" y="320" width="215" height="66" rx="10"/>
+      <text class="t-title" x="572" y="344" text-anchor="middle">Renderer + HTTP</text>
+      <text class="t-sub" x="572" y="362" text-anchor="middle">Change or stale → PNG</text>
+      <text class="t-sub" x="572" y="378" text-anchor="middle">Serves the image</text>
+
+      <!-- Display Pi -->
+      <rect class="box" x="465" y="456" width="215" height="60" rx="10"/>
+      <text class="t-title" x="572" y="481" text-anchor="middle">Display Pi</text>
+      <text class="t-sub" x="572" y="499" text-anchor="middle">Inky Impression 7.3"</text>
+
+      <!-- Analytics (future) -->
+      <rect class="box future" x="195" y="456" width="210" height="60" rx="10"/>
+      <text class="t-title t-future" x="300" y="481" text-anchor="middle">Analytics &amp; queries</text>
+      <text class="t-sub" x="300" y="499" text-anchor="middle">Future</text>
+
+      <!-- Edges -->
+      <path class="edge" d="M435 66 V118" marker-end="url(#arrow)"/>
+      <path class="edge" d="M435 176 V208" marker-end="url(#arrow)"/>
+      <text class="t-edge" x="443" y="197">publish</text>
+
+      <path class="edge future" d="M150 238 H318" marker-end="url(#arrow-f)"/>
+      <text class="t-edge" x="180" y="230">publish</text>
+
+      <path class="edge" d="M390 266 L310 318" marker-end="url(#arrow)"/>
+      <path class="edge" d="M480 266 L562 318" marker-end="url(#arrow)"/>
+      <text class="t-edge" x="296" y="294">subscribe</text>
+      <text class="t-edge" x="528" y="294">subscribe</text>
+
+      <path class="edge" d="M572 386 V454" marker-end="url(#arrow)"/>
+      <text class="t-edge" x="580" y="426">GET PNG if changed</text>
+
+      <path class="edge future" d="M300 454 V388" marker-end="url(#arrow-f)"/>
+      <text class="t-edge" x="308" y="426">read-only queries</text>
+    </svg>
+  </div>
+
+  <div class="components">
+    <div class="card"><h3>Pollers</h3><p>Fetch data from TfL and the weather API on a schedule and publish it as events. Only these talk to the outside world.</p></div>
+    <div class="card"><h3>Mosquitto</h3><p>The event bus. Retained messages hold the latest value on each topic, so new subscribers get current state straight away. Every payload carries an event ID and publisher timestamp.</p></div>
+    <div class="card"><h3>Data service</h3><p>Subscribes to everything at QoS 1 with a persistent session, so the broker queues events while it restarts. Skips event IDs it has already stored, which covers retained resends and duplicate deliveries. It's the only writer to the SQLite database.</p></div>
+    <div class="card"><h3>Renderer + HTTP</h3><p>Keeps the latest state in memory and tracks when it last heard from each source. It redraws the PNG when the status changes or when a source goes stale or recovers, then serves it. It doesn't depend on the database.</p></div>
+    <div class="card"><h3>Display Pi</h3><p>Pi with the Inky Impression 7.3" attached. A small Python script using Pimoroni's driver fetches the PNG and refreshes the panel only when the image has changed. This is the only part of the system not written in Rust.</p></div>
+    <div class="card"><h3>Greenhouse nodes <span class="tag">Future</span></h3><p>ESP32 sensor and watering nodes publishing to the same bus. They keep a local fallback schedule if the hub is down.</p></div>
+    <div class="card"><h3>Analytics <span class="tag">Future</span></h3><p>Opens the SQLite file read-only, so it never blocks the data service. DuckDB can attach the same file for heavier analysis without running a second database.</p></div>
+  </div>
+
+  <h3 class="sub-h">Event log schema</h3>
+  <p class="muted">One table of raw events. SQLite's JSON functions query inside payloads, and views or generated columns are added only when a query needs them.</p>
+  <div class="card code">
+<pre>CREATE TABLE events (
+  id          TEXT PRIMARY KEY,   <span class="c">-- event ID from the publisher (dedupe)</span>
+  topic       TEXT NOT NULL,
+  ts          INTEGER NOT NULL,   <span class="c">-- publisher timestamp, unix ms</span>
+  received_at INTEGER NOT NULL,
+  payload     TEXT NOT NULL       <span class="c">-- JSON</span>
+);
+CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
+  </div>
+</section>
+
+<section>
+  <h2>Development and deployment</h2>
+  <p class="muted">There's no local copy of the system. Mosquitto runs only on the Pi 5, and whichever service you're working on runs on the dev machine and connects to it over the home network.</p>
+
+  <div class="card diagram">
+    <svg viewBox="0 0 710 300" role="img" aria-label="Dev loop: on the Windows machine, the service under development publishes to dev topics on the Pi 5's Mosquitto over the LAN, and MQTT Explorer watches the traffic. Builds made with cross are deployed over SSH to live systemd services on the Pi, which publish to home topics.">
+      <rect class="zone" x="10" y="10" width="300" height="280" rx="14"/>
+      <text class="t-zone" x="26" y="34">Dev machine · Windows</text>
+
+      <rect class="zone" x="400" y="10" width="300" height="280" rx="14"/>
+      <text class="t-zone" x="416" y="34">Pi 5 hub</text>
+
+      <rect class="box" x="30" y="50" width="260" height="56" rx="10"/>
+      <text class="t-title" x="160" y="74" text-anchor="middle">Service in development</text>
+      <text class="t-sub" x="160" y="92" text-anchor="middle">Publishes to dev/… topics</text>
+
+      <rect class="box" x="30" y="130" width="260" height="56" rx="10"/>
+      <text class="t-title" x="160" y="154" text-anchor="middle">MQTT Explorer</text>
+      <text class="t-sub" x="160" y="172" text-anchor="middle">Watch live traffic</text>
+
+      <rect class="box" x="30" y="210" width="260" height="56" rx="10"/>
+      <text class="t-title" x="160" y="234" text-anchor="middle">Build with cross</text>
+      <text class="t-sub" x="160" y="252" text-anchor="middle">ARM 64-bit Linux binary</text>
+
+      <rect class="box bus" x="420" y="50" width="260" height="56" rx="10"/>
+      <text class="t-title" x="550" y="74" text-anchor="middle">Mosquitto</text>
+      <text class="t-sub" x="550" y="92" text-anchor="middle">dev/… and home/… topics</text>
+
+      <rect class="box" x="420" y="210" width="260" height="56" rx="10"/>
+      <text class="t-title" x="550" y="234" text-anchor="middle">Live services (systemd)</text>
+      <text class="t-sub" x="550" y="252" text-anchor="middle">Publish to home/… topics</text>
+
+      <path class="edge" d="M290 78 H418" marker-end="url(#arrow)"/>
+      <text class="t-edge" x="354" y="70" text-anchor="middle">MQTT</text>
+      <text class="t-edge" x="354" y="94" text-anchor="middle">over LAN</text>
+
+      <path class="edge" d="M290 158 L418 100" marker-end="url(#arrow)"/>
+      <text class="t-edge" x="368" y="150" text-anchor="middle">subscribe</text>
+
+      <path class="edge" d="M290 238 H418" marker-end="url(#arrow)"/>
+      <text class="t-edge" x="354" y="230" text-anchor="middle">just deploy</text>
+      <text class="t-edge" x="354" y="254" text-anchor="middle">SSH + restart</text>
+
+      <path class="edge" d="M550 210 V108" marker-end="url(#arrow)"/>
+    </svg>
+  </div>
+
+  <div class="components two">
+    <div class="card"><h3>Dev environment</h3><p>Native Windows, using VS Code or RustRover with the Windows Rust toolchain. Code is written to run on both Windows and Linux; Linux-only parts (systemd units, the Pi's builds) are handled at deploy time.</p></div>
+    <div class="card"><h3>Testing</h3><p>Run services locally against the Pi's Mosquitto. A <code>dev/</code> topic prefix keeps test data out of the live dashboard. Each client needs a unique ID. Most tests use saved API responses and don't need the broker at all.</p></div>
+    <div class="card"><h3>Build</h3><p>Cross-compile for ARM 64-bit Linux with <code>cross</code>, which builds inside a Linux container using Docker Desktop. SQLite is bundled through <code>rusqlite</code> and compiles in seconds. Fall back to building on the Pi 5 if needed.</p></div>
+    <div class="card"><h3>Deploy</h3><p>Each service runs as a systemd unit. A <code>justfile</code> builds, copies over SSH and restarts. The same binary runs everywhere, with TOML config for each environment. Secrets stay on the Pi.</p></div>
+  </div>
+
+  <h3 class="sub-h">Project structure</h3>
+  <p class="muted">One repository holding a Cargo workspace. Every service shares <code>nerve-core</code>, so changing a message type is checked across all of them at compile time.</p>
+  <div class="card code">
+<pre>nerve-centre/
+├── Cargo.toml            <span class="c"># workspace: members and shared dependency versions</span>
+├── crates/
+│   ├── nerve-core/       <span class="c"># shared message envelope, topics, config, MQTT helpers</span>
+│   ├── poller-tfl/
+│   ├── poller-weather/
+│   ├── data-service/
+│   └── renderer/         <span class="c"># includes the HTTP endpoint</span>
+├── display-client/       <span class="c"># Python, runs on the display Pi (outside the Cargo workspace)</span>
+├── deploy/
+│   ├── systemd/          <span class="c"># one .service file per service</span>
+│   └── mosquitto/        <span class="c"># broker config</span>
+├── config/               <span class="c"># dev.toml, prod.toml (no secrets)</span>
+└── justfile              <span class="c"># build, deploy and log commands</span></pre>
+  </div>
+  <p class="muted small">The ESP32 greenhouse firmware will probably live in a separate workspace, because it builds very differently.</p>
+</section>
+
+<section>
+  <h2>Principles</h2>
+  <div class="card">
+    <ul class="principles">
+      <li><strong>Grow the hub only when something needs it.</strong> No rules engine, analytics or extra services until a project calls for them.</li>
+      <li><strong>Services connect through the bus.</strong> Adding a data source shouldn't require changes to existing services.</li>
+      <li><strong>Show when data is stale.</strong> Every panel shows when its status last changed. If a source goes quiet for too long, the renderer marks that panel stale, so outdated "Good service" is never shown as current.</li>
+      <li><strong>Log every event exactly once.</strong> Payloads carry an event ID, and the data service uses a persistent QoS 1 session and drops IDs it has already stored.</li>
+      <li><strong>Keep the raw history.</strong> Store every event so it can be reprocessed later.</li>
+      <li><strong>Hardware fails safe.</strong> The watering system keeps working without the hub and can't overflow.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Hardware</h2>
+  <div class="card table-wrap">
+    <table>
+      <thead><tr><th>Device</th><th>Role</th></tr></thead>
+      <tbody>
+        <tr><td>Raspberry Pi 5 (4 GB)</td><td>Hub</td></tr>
+        <tr><td>Raspberry Pi 4 (2 GB)</td><td>Display prototype</td></tr>
+        <tr><td>Raspberry Pi 4 (4 GB)</td><td>Spare / development</td></tr>
+        <tr><td>Raspberry Pi Pico H</td><td>Testing sensors on the bench (no Wi-Fi)</td></tr>
+        <tr><td>Raspberry Pi 5 Active Cooler</td><td>Hub cooling · ordered</td></tr>
+        <tr><td>Raspberry Pi M.2 HAT+ with 256 GB NVMe SSD (2242)</td><td>Hub boot and storage drive · ordered</td></tr>
+        <tr><td>Pimoroni Inky Impression 7.3" colour e-ink</td><td>Dashboard display · ordered</td></tr>
+        <tr><td>Official 27 W power supply</td><td>For the hub, if you don't have one</td></tr>
+        <tr><td>Display board, ESP32 nodes, sensors</td><td>To buy later</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Still to decide</h2>
+  <div class="card">
+    <ul class="principles">
+      <li>Message design: topic structure and the payload format inside the shared envelope (event ID and timestamp are settled)</li>
+      <li>Process structure: separate binaries or one binary with several tasks</li>
+      <li>How the dashboard is drawn and fitted to the 6-colour palette</li>
+      <li>Staleness thresholds for each source</li>
+      <li>Day-to-day running: logging, health checks and backups</li>
+    </ul>
+  </div>
+</section>
+
+
+</main>
+</body>
+</html>

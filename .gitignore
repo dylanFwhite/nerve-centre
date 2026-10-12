@@ -1,0 +1,10 @@
+# Cargo build output
+/target
+
+# Local overrides and secrets: never commit these
+*.local.toml
+.env
+
+# Editor settings
+.idea/
+.vscode/
