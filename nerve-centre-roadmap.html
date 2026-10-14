@@ -150,6 +150,7 @@
     <div class="card decision"><h3>Hub</h3><p>Raspberry Pi 5 (4 GB), booting from an NVMe SSD, running Raspberry Pi OS Lite (64-bit)</p></div>
     <div class="card decision"><h3>Language</h3><p>Rust wherever possible. The display client is Python, to use Pimoroni's driver</p></div>
     <div class="card decision"><h3>Event bus</h3><p>Eclipse Mosquitto (MQTT)</p></div>
+    <div class="card decision"><h3>Services</h3><p>One binary per service, each its own systemd unit, restarted independently</p></div>
     <div class="card decision"><h3>Storage</h3><p>SQLite (WAL mode), written only by the data service</p></div>
     <div class="card decision"><h3>Display</h3><p>Pimoroni Inky Impression 7.3" (6-colour Spectra 6 e-ink), image rendered on the hub</p></div>
     <div class="card decision"><h3>First project</h3><p>Commute dashboard: Tube and Elizabeth line status (now and 7 days ahead) and London weather from Open-Meteo</p></div>
@@ -392,11 +393,13 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
       "starts": "2026-10-18T04:30:00Z", "ends": "2026-10-19T23:59:00Z" } ] }</pre>
   </div>
 
-  <p class="muted" style="margin-top:16px"><code>weather/forecast</code>, from Open-Meteo (free, no API key). <code>condition</code> is our own short list (clear, partly cloudy, cloudy, fog, drizzle, rain, heavy rain, snow, thunderstorm) mapped from Open-Meteo's weather codes. <code>hours</code> runs to midnight, local time.</p>
+  <p class="muted" style="margin-top:16px"><code>weather/forecast</code>, from Open-Meteo (free, no API key). <code>condition</code> is our own short list (clear, partly cloudy, cloudy, fog, drizzle, rain, heavy rain, snow, thunderstorm) mapped from Open-Meteo's weather codes. <code>hours</code> runs to midnight, local time. Wind is in mph. Sunrise and sunset let the renderer draw night icons after dark.</p>
   <div class="card code">
 <pre>{ "location": "London",
-  "now":   { "temp_c": 14.2, "feels_like_c": 12.8, "condition": "drizzle", "precip_mm": 0.3 },
-  "today": { "high_c": 16.0, "low_c": 9.5, "rain_chance_max": 70 },
+  "now":   { "temp_c": 14.2, "feels_like_c": 12.8, "condition": "drizzle", "precip_mm": 0.3,
+             "wind_mph": 11.0, "gust_mph": 24.0 },
+  "today": { "high_c": 16.0, "low_c": 9.5, "rain_chance_max": 70,
+             "sunrise": "2026-10-12T07:16:00+01:00", "sunset": "2026-10-12T18:13:00+01:00" },
   "hours": [ { "time": "2026-10-12T21:00:00+01:00", "temp_c": 13.1, "condition": "cloudy", "rain_chance": 20 } ] }</pre>
   </div>
 </section>
@@ -514,7 +517,6 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
   <h2>Still to decide</h2>
   <div class="card">
     <ul class="principles">
-      <li>Process structure: separate binaries or one binary with several tasks</li>
       <li>How the dashboard is drawn and fitted to the 6-colour palette</li>
       <li>Day-to-day running: logging, health checks and backups</li>
     </ul>

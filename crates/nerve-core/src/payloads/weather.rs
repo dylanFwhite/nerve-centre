@@ -25,6 +25,10 @@ pub struct Now {
     pub condition: Condition,
     /// Rain in the current hour, in millimetres.
     pub precip_mm: f64,
+    /// Average wind speed at 10 m, in miles per hour.
+    pub wind_mph: f64,
+    /// Strongest gusts, in miles per hour.
+    pub gust_mph: f64,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -33,6 +37,8 @@ pub struct Today {
     pub low_c: f64,
     /// Highest chance of rain in any remaining hour, as a percentage.
     pub rain_chance_max: u8,
+    pub sunrise: DateTime<FixedOffset>,
+    pub sunset: DateTime<FixedOffset>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -73,11 +79,15 @@ mod tests {
                 feels_like_c: 12.8,
                 condition: Condition::Drizzle,
                 precip_mm: 0.3,
+                wind_mph: 11.0,
+                gust_mph: 24.0,
             },
             today: Today {
                 high_c: 16.0,
                 low_c: 9.5,
                 rain_chance_max: 70,
+                sunrise: "2026-10-12T07:16:00+01:00".parse().unwrap(),
+                sunset: "2026-10-12T18:13:00+01:00".parse().unwrap(),
             },
             hours: vec![Hour {
                 time: "2026-10-12T21:00:00+01:00".parse().unwrap(),
@@ -89,8 +99,8 @@ mod tests {
 
         let expected = json!({
             "location": "London",
-            "now": { "temp_c": 14.2, "feels_like_c": 12.8, "condition": "drizzle", "precip_mm": 0.3 },
-            "today": { "high_c": 16.0, "low_c": 9.5, "rain_chance_max": 70 },
+            "now": { "temp_c": 14.2, "feels_like_c": 12.8, "condition": "drizzle", "precip_mm": 0.3, "wind_mph": 11.0, "gust_mph": 24.0 },
+            "today": { "high_c": 16.0, "low_c": 9.5, "rain_chance_max": 70, "sunrise": "2026-10-12T07:16:00+01:00", "sunset": "2026-10-12T18:13:00+01:00" },
             "hours": [{ "time": "2026-10-12T21:00:00+01:00", "temp_c": 13.1, "condition": "cloudy", "rain_chance": 20 }]
         });
         assert_eq!(serde_json::to_value(&forecast).unwrap(), expected);
