@@ -179,7 +179,8 @@
         <div class="phase-head"><h3>Dashboard software</h3><span class="when">Software only</span></div>
         <ul>
           <li>Pollers for TfL (Tube and Elizabeth line: current status and planned disruptions) and the Open-Meteo forecast for London</li>
-          <li>Mosquitto on the hub, plus a data service that logs every event to SQLite</li>
+          <li>Done: Mosquitto 2.0.21 on the hub, listening on the LAN (IPv4, port 1883) with password login. Config in <code>deploy/mosquitto/</code></li>
+          <li>A data service that logs every event to SQLite</li>
           <li>Renderer that draws the dashboard as a PNG and serves it over HTTP</li>
         </ul>
         <p class="outcome">Useful straight away: check the dashboard in a browser before leaving.</p>
@@ -394,7 +395,7 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
   <p class="muted" style="margin-top:16px"><code>weather/forecast</code>, from Open-Meteo (free, no API key). <code>condition</code> is our own short list (clear, partly cloudy, cloudy, fog, drizzle, rain, heavy rain, snow, thunderstorm) mapped from Open-Meteo's weather codes. <code>hours</code> runs to midnight, local time.</p>
   <div class="card code">
 <pre>{ "location": "London",
-  "now":   { "temp_c": 14.2, "feels_like_c": 12.8, "condition": "light_rain", "precip_mm": 0.3 },
+  "now":   { "temp_c": 14.2, "feels_like_c": 12.8, "condition": "drizzle", "precip_mm": 0.3 },
   "today": { "high_c": 16.0, "low_c": 9.5, "rain_chance_max": 70 },
   "hours": [ { "time": "2026-10-12T21:00:00+01:00", "temp_c": 13.1, "condition": "cloudy", "rain_chance": 20 } ] }</pre>
   </div>
