@@ -2,3 +2,4 @@
 //! topic names and payload formats
 
 pub mod envelope;
+pub mod topics;
