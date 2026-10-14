@@ -152,7 +152,7 @@
     <div class="card decision"><h3>Event bus</h3><p>Eclipse Mosquitto (MQTT)</p></div>
     <div class="card decision"><h3>Storage</h3><p>SQLite (WAL mode), written only by the data service</p></div>
     <div class="card decision"><h3>Display</h3><p>Pimoroni Inky Impression 7.3" (6-colour Spectra 6 e-ink), image rendered on the hub</p></div>
-    <div class="card decision"><h3>First project</h3><p>Commute dashboard: TfL line status and weather</p></div>
+    <div class="card decision"><h3>First project</h3><p>Commute dashboard: Tube and Elizabeth line status (now and 7 days ahead) and London weather from Open-Meteo</p></div>
   </div>
 </section>
 
@@ -162,12 +162,14 @@
     <li class="phase first">
       <span class="dot">0</span>
       <div class="card">
-        <div class="phase-head"><h3>Set up the hub</h3><span class="when">Start here</span></div>
+        <div class="phase-head"><h3>Set up the hub</h3><span class="when">Done · 14 Oct 2026</span></div>
         <ul>
-          <li>Hardware ordered: Active Cooler, M.2 HAT+ with a 256 GB 2242 NVMe SSD, and the Inky Impression 7.3" display. Check you have the official 27 W power supply</li>
-          <li>Flash Raspberry Pi OS Lite (64-bit) to the SSD with Raspberry Pi Imager, setting the hostname, user and SSH key</li>
-          <li>Fit the HAT, SSD and cooler, then update the bootloader and set it to boot from NVMe</li>
-          <li>Reserve the Pi's IP address in the router and turn on automatic security updates</li>
+          <li>Done: Pi 5 named <code>nerve-centre</code>, running Raspberry Pi OS Lite 64-bit (Debian 13 "trixie") from the NVMe SSD, with the Active Cooler fitted</li>
+          <li>Done: boot order tries NVMe first, bootloader up to date, power supply never under-voltage, time zone Europe/London</li>
+          <li>Done: SSH key-only login, Wi-Fi power saving off, automatic security updates on</li>
+          <li>Done: 192.168.1.252 reserved for the Pi's Wi-Fi in the router (Zyxel EX3301-T0, Home Networking → Static DHCP)</li>
+          <li>Done: full upgrade, SD card removed (kept for recovery), reboot confirmed the reserved IP and Wi-Fi power saving staying off</li>
+          <li>Kernel and firmware updates are manual: run <code>sudo apt full-upgrade</code> every few weeks</li>
         </ul>
       </div>
     </li>
@@ -176,7 +178,7 @@
       <div class="card">
         <div class="phase-head"><h3>Dashboard software</h3><span class="when">Software only</span></div>
         <ul>
-          <li>Pollers for TfL (current and planned disruptions) and the weather forecast</li>
+          <li>Pollers for TfL (Tube and Elizabeth line: current status and planned disruptions) and the Open-Meteo forecast for London</li>
           <li>Mosquitto on the hub, plus a data service that logs every event to SQLite</li>
           <li>Renderer that draws the dashboard as a PNG and serves it over HTTP</li>
         </ul>
@@ -338,6 +340,67 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
 </section>
 
 <section>
+  <h2>Message design</h2>
+  <p class="muted">Every topic starts with a root from config: <code>home/</code> on the Pi, <code>dev/</code> on the dev machine. Each data source publishes one message holding its whole current state.</p>
+
+  <div class="card table-wrap">
+    <table>
+      <thead><tr><th>Topic</th><th>Contents</th><th>Published</th></tr></thead>
+      <tbody>
+        <tr><td><code>{root}/tfl/status</code></td><td>Current status of every Tube line and the Elizabeth line</td><td>On change · polled every 60 s</td></tr>
+        <tr><td><code>{root}/tfl/planned</code></td><td>Planned disruptions for the next 7 days</td><td>On change · polled every 30 min</td></tr>
+        <tr><td><code>{root}/weather/forecast</code></td><td>London: now and the rest of today</td><td>On change · polled every 15 min</td></tr>
+        <tr><td><code>{root}/service/{name}</code></td><td>Service health: online or offline, and the time of the last successful fetch</td><td>Every poll · offline set by Last Will</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="muted small">All topics are retained. The data service logs every data message, but only the online and offline changes from <code>service/</code> topics, not every heartbeat.</p>
+
+  <div class="components two">
+    <div class="card"><h3>Publishing on change</h3><p>Each poller keeps the last payload it published in memory. After every fetch it converts the response into our payload type and compares it with that copy. It publishes only if they differ. Envelope fields are not compared. After a restart the memory is empty, so the first fetch is always published.</p></div>
+    <div class="card"><h3>Staleness</h3><p>Data topics stay quiet when nothing changes, so the renderer reads freshness from <code>service/{name}</code>. A panel is marked stale when its poller's last successful fetch is older than 3× its poll interval.</p></div>
+  </div>
+
+  <h3 class="sub-h">Envelope</h3>
+  <p class="muted">Every data message is JSON, wrapped in the same envelope defined in <code>nerve-core</code>. JSON is chosen for observability: it reads directly in MQTT Explorer and SQLite can query inside it.</p>
+  <div class="card code">
+<pre>{
+  "id": "0199d4a2-7c3e-7b1a-9f00-3c5e8a1b2d4f",  <span class="c">// UUID v7: unique and sorts by time, used for dedupe</span>
+  "ts": "2026-10-12T19:42:05.123Z",              <span class="c">// published at, UTC (stored as unix ms)</span>
+  "source": "poller-tfl",                        <span class="c">// publishing service</span>
+  "v": 1,                                        <span class="c">// version of the data format</span>
+  "data": { ... }
+}</pre>
+  </div>
+
+  <h3 class="sub-h">Payloads</h3>
+  <p class="muted"><code>tfl/status</code>, from TfL's <code>/Line/Mode/tube,elizabeth-line/Status</code>. <code>level</code> is our own rating (<code>good</code>, <code>minor</code>, <code>severe</code>, <code>closed</code>, <code>unknown</code>) mapped from TfL's codes, so the renderer never needs to know them.</p>
+  <div class="card code">
+<pre>{ "lines": [
+  { "id": "victoria", "name": "Victoria", "mode": "tube", "level": "good",
+    "statuses": [ { "code": 10, "description": "Good Service", "reason": null } ] }
+] }</pre>
+  </div>
+
+  <p class="muted" style="margin-top:16px"><code>tfl/planned</code>, from the same endpoint with a date range (<code>…/Status/{from}/to/{to}</code>).</p>
+  <div class="card code">
+<pre>{ "from": "2026-10-13", "to": "2026-10-19",
+  "disruptions": [
+    { "line_id": "district", "description": "Planned Closure",
+      "detail": "No service between Earl's Court and Richmond…",
+      "starts": "2026-10-18T04:30:00Z", "ends": "2026-10-19T23:59:00Z" } ] }</pre>
+  </div>
+
+  <p class="muted" style="margin-top:16px"><code>weather/forecast</code>, from Open-Meteo (free, no API key). <code>condition</code> is our own short list (clear, partly cloudy, cloudy, fog, drizzle, rain, heavy rain, snow, thunderstorm) mapped from Open-Meteo's weather codes. <code>hours</code> runs to midnight, local time.</p>
+  <div class="card code">
+<pre>{ "location": "London",
+  "now":   { "temp_c": 14.2, "feels_like_c": 12.8, "condition": "light_rain", "precip_mm": 0.3 },
+  "today": { "high_c": 16.0, "low_c": 9.5, "rain_chance_max": 70 },
+  "hours": [ { "time": "2026-10-12T21:00:00+01:00", "temp_c": 13.1, "condition": "cloudy", "rain_chance": 20 } ] }</pre>
+  </div>
+</section>
+
+<section>
   <h2>Development and deployment</h2>
   <p class="muted">There's no local copy of the system. Mosquitto runs only on the Pi 5, and whichever service you're working on runs on the dev machine and connects to it over the home network.</p>
 
@@ -450,10 +513,8 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
   <h2>Still to decide</h2>
   <div class="card">
     <ul class="principles">
-      <li>Message design: topic structure and the payload format inside the shared envelope (event ID and timestamp are settled)</li>
       <li>Process structure: separate binaries or one binary with several tasks</li>
       <li>How the dashboard is drawn and fitted to the 6-colour palette</li>
-      <li>Staleness thresholds for each source</li>
       <li>Day-to-day running: logging, health checks and backups</li>
     </ul>
   </div>
