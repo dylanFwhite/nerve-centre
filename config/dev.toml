@@ -1,0 +1,11 @@
+# Settings for running services on the dev machine.
+
+[mqtt]
+host = "192.168.1.252"
+port = 1883
+topic_root = "dev"
+
+[tfl]
+status_poll_seconds = 60
+planned_poll_seconds = 1800
+planned_days = 7
