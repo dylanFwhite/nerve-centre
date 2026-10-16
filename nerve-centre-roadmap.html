@@ -182,6 +182,7 @@
           <li>Pollers for TfL (Tube and Elizabeth line: current status and planned disruptions) and the Open-Meteo forecast for London</li>
           <li>Done: Mosquitto 2.0.21 on the hub, listening on the LAN (IPv4, port 1883) with password login. Config in <code>deploy/mosquitto/</code></li>
           <li>A data service that logs every event to SQLite</li>
+          <li><code>node-agent</code> on the hub: publishes CPU, memory, temperature, throttling and disk use, plus memory and CPU for each systemd service, every 60 s. This records a baseline before more services are added, so it shows when a service should move to another node</li>
           <li>Renderer that draws the dashboard as a PNG and serves it over HTTP</li>
         </ul>
         <p class="outcome">Useful straight away: check the dashboard in a browser before leaving.</p>
@@ -195,6 +196,7 @@
           <li>A small Python client on the display Pi fetches the PNG and, using Pimoroni's <code>inky</code> library, refreshes the panel only when it has changed</li>
           <li>Prototype on the spare Pi 4, move to a small board later</li>
           <li>Frame and mount it by the door</li>
+          <li>Display health: the client publishes a <code>service/display-client</code> heartbeat with the time of its last successful refresh, and <code>node-agent</code> runs on the display Pi too</li>
         </ul>
         <p class="outcome">The dashboard is on the wall.</p>
       </div>
@@ -202,17 +204,30 @@
     <li class="phase">
       <span class="dot">3</span>
       <div class="card">
+        <div class="phase-head"><h3>Desk status display</h3><span class="when">Needs a small display</span></div>
+        <ul>
+          <li>A small LCD or similar on the desk, chosen for live updates rather than e-ink</li>
+          <li>Shows each node's state (OK, warning or stale) from <code>node/{name}/stats</code>, plus its services</li>
+          <li>24-hour sparklines from read-only queries on the data service's SQLite file, the first use of the analytics path</li>
+        </ul>
+        <p class="outcome">The health of every node and service is visible at a glance.</p>
+      </div>
+    </li>
+    <li class="phase">
+      <span class="dot">4</span>
+      <div class="card">
         <div class="phase-head"><h3>Greenhouse on the bench</h3><span class="when">Needs sensors</span></div>
         <ul>
-          <li>Soil moisture and climate sensors on ESP32 nodes, publishing to the hub</li>
+          <li>Soil moisture and climate sensors on wireless nodes (hardware to be chosen), publishing to the hub</li>
           <li>Watering controller with a float-switch cutoff and a local fallback schedule</li>
           <li>Add a greenhouse panel to the dashboard</li>
+          <li>To consider when choosing the hardware: how each node reports its own diagnostics. A battery-powered node that sleeps between readings can't be checked with a Last Will, so it would be judged by staleness instead. Battery voltage, Wi-Fi signal strength and reset reason may be worth reporting</li>
         </ul>
         <p class="outcome">Built and tested indoors before it goes in the greenhouse.</p>
       </div>
     </li>
     <li class="phase">
-      <span class="dot">4</span>
+      <span class="dot">5</span>
       <div class="card">
         <div class="phase-head"><h3>Greenhouse install</h3><span class="when">Growing season</span></div>
         <ul>
@@ -228,6 +243,7 @@
         <ul>
           <li>Notifications and a commute status light by the door</li>
           <li>Analytics through the data service, such as commute reliability over time</li>
+          <li>Alerts on node thresholds, such as high temperature, low disk space or a node going stale</li>
           <li>More data sources as new projects come along</li>
         </ul>
       </div>
@@ -237,10 +253,10 @@
 
 <section>
   <h2>System architecture</h2>
-  <p class="muted">Everything except the display runs on the Pi 5. Services talk only through the event bus, so the dashboard keeps working even if storage has a problem.</p>
+  <p class="muted">Everything except the two displays runs on the Pi 5. Services talk only through the event bus, so the dashboard keeps working even if storage has a problem.</p>
 
   <div class="card diagram">
-    <svg viewBox="0 0 710 530" role="img" aria-label="Architecture: external APIs feed pollers, which publish to Mosquitto. The data service and the renderer both subscribe. The renderer serves a PNG to the display Pi. Greenhouse nodes and analytics are future additions.">
+    <svg viewBox="0 0 710 635" role="img" aria-label="Architecture: external APIs feed pollers, which publish to Mosquitto. A node agent publishes resource stats for the hub and each of its services. The data service and the renderer both subscribe. The renderer serves a PNG to the display Pi. The desk display subscribes to Mosquitto for live node health and gets sparklines from read-only analytics queries on SQLite. Greenhouse nodes are a future addition.">
       <defs>
         <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" class="arrowhead"/>
@@ -264,6 +280,11 @@
       <text class="t-title" x="435" y="144" text-anchor="middle">Pollers</text>
       <text class="t-sub" x="435" y="162" text-anchor="middle">Fetch data, publish events</text>
 
+      <!-- Node agent -->
+      <rect class="box" x="185" y="120" width="135" height="56" rx="10"/>
+      <text class="t-title" x="252" y="144" text-anchor="middle">Node agent</text>
+      <text class="t-sub" x="252" y="162" text-anchor="middle">Node + service stats</text>
+
       <!-- Mosquitto -->
       <rect class="box bus" x="320" y="210" width="230" height="56" rx="10"/>
       <text class="t-title" x="435" y="234" text-anchor="middle">Mosquitto</text>
@@ -272,7 +293,7 @@
       <!-- Greenhouse nodes (future) -->
       <rect class="box future" x="10" y="210" width="140" height="56" rx="10"/>
       <text class="t-title t-future" x="80" y="234" text-anchor="middle">Greenhouse</text>
-      <text class="t-sub" x="80" y="252" text-anchor="middle">ESP32 nodes · future</text>
+      <text class="t-sub" x="80" y="252" text-anchor="middle">Sensor nodes · future</text>
 
       <!-- Data service -->
       <rect class="box" x="195" y="320" width="210" height="66" rx="10"/>
@@ -291,15 +312,22 @@
       <text class="t-title" x="572" y="481" text-anchor="middle">Display Pi</text>
       <text class="t-sub" x="572" y="499" text-anchor="middle">Inky Impression 7.3"</text>
 
-      <!-- Analytics (future) -->
-      <rect class="box future" x="195" y="456" width="210" height="60" rx="10"/>
-      <text class="t-title t-future" x="300" y="481" text-anchor="middle">Analytics &amp; queries</text>
-      <text class="t-sub" x="300" y="499" text-anchor="middle">Future</text>
+      <!-- Analytics -->
+      <rect class="box" x="195" y="456" width="210" height="60" rx="10"/>
+      <text class="t-title" x="300" y="481" text-anchor="middle">Analytics &amp; queries</text>
+      <text class="t-sub" x="300" y="499" text-anchor="middle">Read-only SQLite</text>
+
+      <!-- Desk display -->
+      <rect class="box" x="195" y="566" width="210" height="60" rx="10"/>
+      <text class="t-title" x="300" y="591" text-anchor="middle">Desk display</text>
+      <text class="t-sub" x="300" y="609" text-anchor="middle">Node health · small LCD</text>
 
       <!-- Edges -->
       <path class="edge" d="M435 66 V118" marker-end="url(#arrow)"/>
       <path class="edge" d="M435 176 V208" marker-end="url(#arrow)"/>
       <text class="t-edge" x="443" y="197">publish</text>
+
+      <path class="edge" d="M268 176 L340 208" marker-end="url(#arrow)"/>
 
       <path class="edge future" d="M150 238 H318" marker-end="url(#arrow-f)"/>
       <text class="t-edge" x="180" y="230">publish</text>
@@ -312,19 +340,27 @@
       <path class="edge" d="M572 386 V454" marker-end="url(#arrow)"/>
       <text class="t-edge" x="580" y="426">GET PNG if changed</text>
 
-      <path class="edge future" d="M300 454 V388" marker-end="url(#arrow-f)"/>
+      <path class="edge" d="M300 454 V388" marker-end="url(#arrow)"/>
       <text class="t-edge" x="308" y="426">read-only queries</text>
+
+      <path class="edge" d="M300 516 V564" marker-end="url(#arrow)"/>
+      <text class="t-edge" x="308" y="545">sparklines</text>
+
+      <path class="edge" d="M320 258 H182 V596 H193" marker-end="url(#arrow)"/>
+      <text class="t-edge" x="174" y="545" text-anchor="end">subscribe</text>
     </svg>
   </div>
 
   <div class="components">
     <div class="card"><h3>Pollers</h3><p>Fetch data from TfL and the weather API on a schedule and publish it as events. Only these talk to the outside world.</p></div>
+    <div class="card"><h3>Node agent</h3><p>Runs on every Linux node. Every 60 s it publishes the node's CPU, memory, temperature, throttling and disk use, plus memory and CPU for each systemd service it's configured to watch, read from systemd's own accounting.</p></div>
     <div class="card"><h3>Mosquitto</h3><p>The event bus. Retained messages hold the latest value on each topic, so new subscribers get current state straight away. Every payload carries an event ID and publisher timestamp.</p></div>
     <div class="card"><h3>Data service</h3><p>Subscribes to everything at QoS 1 with a persistent session, so the broker queues events while it restarts. Skips event IDs it has already stored, which covers retained resends and duplicate deliveries. It's the only writer to the SQLite database.</p></div>
     <div class="card"><h3>Renderer + HTTP</h3><p>Keeps the latest state in memory and tracks when it last heard from each source. It redraws the PNG when the status changes or when a source goes stale or recovers, then serves it. It doesn't depend on the database.</p></div>
     <div class="card"><h3>Display Pi</h3><p>Pi with the Inky Impression 7.3" attached. A small Python script using Pimoroni's driver fetches the PNG and refreshes the panel only when the image has changed. This is the only part of the system not written in Rust.</p></div>
-    <div class="card"><h3>Greenhouse nodes <span class="tag">Future</span></h3><p>ESP32 sensor and watering nodes publishing to the same bus. They keep a local fallback schedule if the hub is down.</p></div>
-    <div class="card"><h3>Analytics <span class="tag">Future</span></h3><p>Opens the SQLite file read-only, so it never blocks the data service. DuckDB can attach the same file for heavier analysis without running a second database.</p></div>
+    <div class="card"><h3>Greenhouse nodes <span class="tag">Future</span></h3><p>Sensor and watering nodes (hardware to be chosen) publishing to the same bus. They keep a local fallback schedule if the hub is down.</p></div>
+    <div class="card"><h3>Analytics</h3><p>Opens the SQLite file read-only, so it never blocks the data service. Its first use is the desk display's 24-hour sparklines. DuckDB can attach the same file for heavier analysis without running a second database.</p></div>
+    <div class="card"><h3>Desk display</h3><p>A small LCD or similar on the desk. It subscribes to <code>node/</code> and <code>service/</code> topics for live health of every node and service, and draws 24-hour sparklines from analytics queries.</p></div>
   </div>
 
   <h3 class="sub-h">Event log schema</h3>
@@ -352,15 +388,16 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
         <tr><td><code>{root}/tfl/status</code></td><td>Current status of every Tube line and the Elizabeth line</td><td>On change · polled every 60 s</td></tr>
         <tr><td><code>{root}/tfl/planned</code></td><td>Planned disruptions for the next 7 days</td><td>On change · polled every 30 min</td></tr>
         <tr><td><code>{root}/weather/forecast</code></td><td>London: now and the rest of today</td><td>On change · polled every 15 min</td></tr>
+        <tr><td><code>{root}/node/{name}/stats</code></td><td>Node resources: CPU, memory, temperature, throttling, disk, and CPU and memory per service</td><td>Every 60 s, not on change</td></tr>
         <tr><td><code>{root}/service/{name}</code></td><td>Service health: online or offline, and the time of the last successful fetch</td><td>Every poll · offline set by Last Will</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="muted small">All topics are retained. The data service logs every data message, but only the online and offline changes from <code>service/</code> topics, not every heartbeat.</p>
+  <p class="muted small">All topics are retained. The data service logs every data message, including every <code>node/</code> sample, but only the online and offline changes from <code>service/</code> topics, not every heartbeat.</p>
 
   <div class="components two">
-    <div class="card"><h3>Publishing on change</h3><p>Each poller keeps the last payload it published in memory. After every fetch it converts the response into our payload type and compares it with that copy. It publishes only if they differ. Envelope fields are not compared. After a restart the memory is empty, so the first fetch is always published.</p></div>
-    <div class="card"><h3>Staleness</h3><p>Data topics stay quiet when nothing changes, so the renderer reads freshness from <code>service/{name}</code>. A panel is marked stale when its poller's last successful fetch is older than 3× its poll interval.</p></div>
+    <div class="card"><h3>Publishing on change</h3><p>Each poller keeps the last payload it published in memory. After every fetch it converts the response into our payload type and compares it with that copy. It publishes only if they differ. Envelope fields are not compared. After a restart the memory is empty, so the first fetch is always published. Node stats are the exception: the values change with every sample, so they are published on a fixed interval.</p></div>
+    <div class="card"><h3>Staleness</h3><p>Data topics stay quiet when nothing changes, so the renderer reads freshness from <code>service/{name}</code>. A panel is marked stale when its poller's last successful fetch is older than 3× its poll interval. Node stats carry their own <code>interval_s</code>, so a node is stale after 3× that with no config needed by the reader.</p></div>
   </div>
 
   <h3 class="sub-h">Envelope</h3>
@@ -401,6 +438,17 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
   "today": { "high_c": 16.0, "low_c": 9.5, "rain_chance_max": 70,
              "sunrise": "2026-10-12T07:16:00+01:00", "sunset": "2026-10-12T18:13:00+01:00" },
   "hours": [ { "time": "2026-10-12T21:00:00+01:00", "temp_c": 13.1, "condition": "cloudy", "rain_chance": 20 } ] }</pre>
+  </div>
+
+  <p class="muted" style="margin-top:16px"><code>node/{name}/stats</code>, from <code>node-agent</code>. CPU is averaged over the interval. Per-service figures come from systemd's <code>MemoryCurrent</code> and the change in <code>CPUUsageNSec</code> between samples. <code>throttled</code> is true if the Pi is throttling or under-voltage.</p>
+  <div class="card code">
+<pre>{ "interval_s": 60,
+  "cpu_pct": 12.4, "load_1m": 0.31,
+  "mem_used_mb": 812, "mem_total_mb": 4096,
+  "temp_c": 51.2, "throttled": false,
+  "disk_used_pct": 8.1, "uptime_s": 183000,
+  "services": [ { "name": "mosquitto", "mem_mb": 4.3, "cpu_pct": 0.1 },
+                { "name": "poller-tfl", "mem_mb": 6.1, "cpu_pct": 0.2 } ] }</pre>
   </div>
 </section>
 
@@ -468,6 +516,7 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
 │   ├── poller-tfl/
 │   ├── poller-weather/
 │   ├── data-service/
+│   ├── node-agent/       <span class="c"># node and per-service resource stats</span>
 │   └── renderer/         <span class="c"># includes the HTTP endpoint</span>
 ├── display-client/       <span class="c"># Python, runs on the display Pi (outside the Cargo workspace)</span>
 ├── deploy/
@@ -476,7 +525,7 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
 ├── config/               <span class="c"># dev.toml, prod.toml (no secrets)</span>
 └── justfile              <span class="c"># build, deploy and log commands</span></pre>
   </div>
-  <p class="muted small">The ESP32 greenhouse firmware will probably live in a separate workspace, because it builds very differently.</p>
+  <p class="muted small">Any microcontroller firmware for the greenhouse will probably live in a separate workspace, because it builds very differently.</p>
 </section>
 
 <section>
@@ -507,7 +556,8 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
         <tr><td>Raspberry Pi M.2 HAT+ with 256 GB NVMe SSD (2242)</td><td>Hub boot and storage drive · ordered</td></tr>
         <tr><td>Pimoroni Inky Impression 7.3" colour e-ink</td><td>Dashboard display · ordered</td></tr>
         <tr><td>Official 27 W power supply</td><td>For the hub, if you don't have one</td></tr>
-        <tr><td>Display board, ESP32 nodes, sensors</td><td>To buy later</td></tr>
+        <tr><td>Desk status display (small LCD or similar)</td><td>Node and service health · to choose</td></tr>
+        <tr><td>Display board, greenhouse nodes, sensors</td><td>To buy later</td></tr>
       </tbody>
     </table>
   </div>
@@ -519,6 +569,7 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
     <ul class="principles">
       <li>How the dashboard is drawn and fitted to the 6-colour palette</li>
       <li>Day-to-day running: logging, health checks and backups</li>
+      <li>Desk display hardware, and what drives it: software on its own board talking to the bus directly, or the hub's renderer serving it like the e-ink panel</li>
     </ul>
   </div>
 </section>
