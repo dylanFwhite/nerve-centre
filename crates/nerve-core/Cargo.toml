@@ -11,3 +11,5 @@ uuid.workspace = true
 chrono.workspace = true
 toml.workspace = true
 thiserror.workspace = true
+tokio.workspace = true
+rumqttc.workspace = true

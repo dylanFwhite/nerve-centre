@@ -3,5 +3,6 @@
 
 pub mod config;
 pub mod envelope;
+pub mod mqtt;
 pub mod payloads;
 pub mod topics;
