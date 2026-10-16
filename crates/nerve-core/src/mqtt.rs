@@ -3,8 +3,9 @@
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use rumqttc::{AsyncClient, Event, LastWill, MqttOptions, Packet, QoS};
+use rumqttc::{AsyncClient, ConnectionError, Event, LastWill, MqttOptions, Outgoing, Packet, QoS};
 use thiserror::Error;
+use tokio::task::JoinHandle;
 
 use crate::config::MqttConfig;
 use crate::envelope::{Envelope, Payload};
@@ -22,11 +23,11 @@ pub enum MqttError {
 }
 
 /// A service's connection to the broker, for publishing.
-#[derive(Clone)]
 pub struct Publisher {
     client: AsyncClient,
     topics: Topics,
     service: String,
+    event_loop_task: JoinHandle<()>,
 }
 
 impl Publisher {
@@ -55,11 +56,15 @@ impl Publisher {
 
         // The event loop does the actual network work and must be polled
         // continuously. After an error, the next poll reconnects.
-        tokio::spawn(async move {
+        let event_loop_task = tokio::spawn(async move {
             loop {
                 match event_loop.poll().await {
                     Ok(Event::Incoming(Packet::ConnAck(_))) => {
                         eprintln!("mqtt: connected");
+                    }
+                    Ok(Event::Outgoing(Outgoing::Disconnect))
+                    | Err(ConnectionError::RequestsDone) => {
+                        break;
                     }
                     Ok(_) => {}
                     Err(error) => {
@@ -74,6 +79,7 @@ impl Publisher {
             client,
             topics,
             service: service.to_string(),
+            event_loop_task,
         })
     }
 
@@ -99,5 +105,18 @@ impl Publisher {
         };
         self.publish(&self.topics.service(&self.service), status)
             .await
+    }
+
+    pub async fn disconnect(self, last_success: Option<DateTime<Utc>>) -> Result<(), MqttError> {
+        let status = ServiceStatus {
+            state: ServiceState::Offline,
+            last_success,
+        };
+        self.publish(&self.topics.service(&self.service), status)
+            .await?;
+        self.client.disconnect().await?;
+
+        let _ = tokio::time::timeout(Duration::from_secs(5), self.event_loop_task).await;
+        Ok(())
     }
 }

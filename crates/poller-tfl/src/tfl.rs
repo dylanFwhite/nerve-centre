@@ -1,7 +1,53 @@
-//! TfL's line status API: response format and conversion into our payloads.
+//! TfL's line status API: fetching, response format and conversion into
+//! our payloads.
+
+use core::error;
+use std::time::Duration;
 
 use nerve_core::payloads::tfl::{Level, Line, LineStatus, TflStatus};
 use serde::Deserialize;
+use thiserror::Error;
+
+const STATUS_URL: &str = "https://api.tfl.gov.uk/Line/Mode/tube,elizabeth-line/Status";
+
+pub struct Api {
+    http: reqwest::Client,
+    app_key: Option<String>,
+}
+
+#[derive(Debug, Error)]
+pub enum FetchError {
+    #[error("request failed: {0}")]
+    Http(reqwest::Error),
+    #[error("unexpected response: {0}")]
+    Parse(#[from] serde_json::Error),
+}
+
+impl From<reqwest::Error> for FetchError {
+    fn from(error: reqwest::Error) -> Self {
+        FetchError::Http(error.without_url())
+    }
+}
+
+impl Api {
+    pub fn new(app_key: Option<String>) -> Result<Self, reqwest::Error> {
+        let http = reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .user_agent("nerve-centre")
+            .build()?;
+        Ok(Self { http, app_key })
+    }
+
+    pub async fn fetch_status(&self) -> Result<TflStatus, FetchError> {
+        let mut request = self.http.get(STATUS_URL);
+        if let Some(key) = &self.app_key {
+            request = request.query(&[("app_key", key)]);
+        }
+
+        let body = request.send().await?.error_for_status()?.bytes().await?;
+        Ok(parse_status(&body)?)
+    }
+}
 
 /// One line as TfL returns it. Only the fields we use; serde skips the rest.
 #[derive(Debug, Deserialize)]
