@@ -64,10 +64,17 @@ impl Payload for TflPlanned {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlannedDisruption {
     pub line_id: String,
+    pub level: Level,
     /// TfL's description, e.g. `Planned Closure`.
     pub description: String,
     /// TfL's full explanation of what is affected.
     pub detail: String,
+    /// When the disruption applies
+    pub periods: Vec<Period>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Period {
     pub starts: DateTime<Utc>,
     pub ends: DateTime<Utc>,
 }
@@ -117,10 +124,13 @@ mod tests {
             to: NaiveDate::from_ymd_opt(2026, 10, 19).unwrap(),
             disruptions: vec![PlannedDisruption {
                 line_id: "district".into(),
+                level: Level::Severe,
                 description: "Planned Closure".into(),
                 detail: "No service between Earl's Court and Richmond".into(),
-                starts: "2026-10-18T04:30:00Z".parse().unwrap(),
-                ends: "2026-10-19T23:59:00Z".parse().unwrap(),
+                periods: vec![Period {
+                    starts: "2026-10-18T04:30:00Z".parse().unwrap(),
+                    ends: "2026-10-19T23:59:00Z".parse().unwrap(),
+                }],
             }],
         };
 

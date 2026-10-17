@@ -1,18 +1,21 @@
 //! TfL's line status API: fetching, response format and conversion into
 //! our payloads.
 
-use core::error;
 use std::time::Duration;
 
-use nerve_core::payloads::tfl::{Level, Line, LineStatus, TflStatus};
+use chrono::{DateTime, Days, Local, NaiveDate, Utc};
+use nerve_core::payloads::tfl::{
+    Level, Line, LineStatus, Period, PlannedDisruption, TflPlanned, TflStatus,
+};
 use serde::Deserialize;
 use thiserror::Error;
 
-const STATUS_URL: &str = "https://api.tfl.gov.uk/Line/Mode/tube,elizabeth-line/Status";
+const BASE_URL: &str = "https://api.tfl.gov.uk/Line";
 
 pub struct Api {
     http: reqwest::Client,
     app_key: Option<String>,
+    line_ids: String,
 }
 
 #[derive(Debug, Error)]
@@ -30,22 +33,42 @@ impl From<reqwest::Error> for FetchError {
 }
 
 impl Api {
-    pub fn new(app_key: Option<String>) -> Result<Self, reqwest::Error> {
+    pub fn new(app_key: Option<String>, lines: &[String]) -> Result<Self, reqwest::Error> {
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
             .user_agent("nerve-centre")
             .build()?;
-        Ok(Self { http, app_key })
+        Ok(Self {
+            http,
+            app_key,
+            line_ids: lines.join(","),
+        })
     }
 
     pub async fn fetch_status(&self) -> Result<TflStatus, FetchError> {
-        let mut request = self.http.get(STATUS_URL);
+        let body = self
+            .get(&format!("{BASE_URL}/{}/Status", self.line_ids))
+            .await?;
+        Ok(parse_status(&body)?)
+    }
+
+    pub async fn fetch_planned(&self, days: u32) -> Result<TflPlanned, FetchError> {
+        let from = Local::now().date_naive();
+        let to = from + Days::new(days.into());
+        let url = format!("{BASE_URL}/{}/Status/{from}/to/{to}", self.line_ids);
+
+        let body = self.get(&url).await?;
+        Ok(parse_planned(&body, from, to)?)
+    }
+
+    async fn get(&self, url: &str) -> Result<Vec<u8>, FetchError> {
+        let mut request = self.http.get(url);
         if let Some(key) = &self.app_key {
             request = request.query(&[("app_key", key)]);
         }
 
-        let body = request.send().await?.error_for_status()?.bytes().await?;
-        Ok(parse_status(&body)?)
+        let response = request.send().await?.error_for_status()?;
+        Ok(response.bytes().await?.to_vec())
     }
 }
 
@@ -66,6 +89,22 @@ struct ApiLineStatus {
     status_severity_description: String,
     /// Missing for Good Service.
     reason: Option<String>,
+    #[serde(default)]
+    validity_periods: Vec<ApiPeriod>,
+    disruption: Option<ApiDisruption>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ApiPeriod {
+    from_date: DateTime<Utc>,
+    to_date: DateTime<Utc>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApiDisruption {
+    /// e.g. `PlannedWork`, `RealTime` or `Information`.
+    category: String,
 }
 
 pub fn parse_status(json: &[u8]) -> serde_json::Result<TflStatus> {
@@ -76,6 +115,49 @@ pub fn parse_status(json: &[u8]) -> serde_json::Result<TflStatus> {
     lines.sort_by(|a, b| a.id.cmp(&b.id));
 
     Ok(TflStatus { lines })
+}
+
+pub fn parse_planned(
+    json: &[u8],
+    from: NaiveDate,
+    to: NaiveDate,
+) -> serde_json::Result<TflPlanned> {
+    let api_lines: Vec<ApiLine> = serde_json::from_slice(json)?;
+
+    let mut disruptions = Vec::new();
+    for line in api_lines {
+        for status in line.line_statuses {
+            let is_planned = status
+                .disruption
+                .as_ref()
+                .is_some_and(|d| d.category == "PlannedWork");
+            if !is_planned {
+                continue;
+            }
+
+            disruptions.push(PlannedDisruption {
+                line_id: line.id.clone(),
+                level: level_for(status.status_severity),
+                description: status.status_severity_description,
+                detail: status.reason.unwrap_or_default().trim().to_string(),
+                periods: status
+                    .validity_periods
+                    .into_iter()
+                    .map(|p| Period {
+                        starts: p.from_date,
+                        ends: p.to_date,
+                    })
+                    .collect(),
+            });
+        }
+    }
+
+    disruptions.sort_by_key(|d| (d.line_id.clone(), d.periods.first().map(|p| p.starts)));
+    Ok(TflPlanned {
+        from,
+        to,
+        disruptions,
+    })
 }
 
 fn to_line(api: ApiLine) -> Line {
@@ -169,5 +251,51 @@ mod tests {
         assert_eq!(level_for(6), Level::Severe);
         assert_eq!(level_for(20), Level::Closed);
         assert_eq!(level_for(99), Level::Unknown);
+    }
+
+    fn date(text: &str) -> NaiveDate {
+        text.parse().unwrap()
+    }
+
+    #[test]
+    fn parses_a_real_planned_response() {
+        let json = include_bytes!("../fixtures/line-status-planned.json");
+        let planned = parse_planned(json, date("2026-10-17"), date("2026-10-24")).unwrap();
+
+        assert!(!planned.disruptions.is_empty());
+        assert!(planned.disruptions.iter().all(|d| !d.periods.is_empty()));
+    }
+
+    #[test]
+    fn keeps_only_planned_works_with_all_their_periods() {
+        let json = br#"[
+            { "id": "elizabeth", "name": "Elizabeth line", "modeName": "elizabeth-line", "lineStatuses": [
+                { "statusSeverity": 7, "statusSeverityDescription": "Reduced Service",
+                  "reason": "Late evening changes. ",
+                  "validityPeriods": [
+                      { "fromDate": "2026-10-19T22:00:00Z", "toDate": "2026-10-19T22:59:00Z" },
+                      { "fromDate": "2026-10-20T22:00:00Z", "toDate": "2026-10-20T22:59:00Z" }
+                  ],
+                  "disruption": { "category": "PlannedWork" } },
+                { "statusSeverity": 9, "statusSeverityDescription": "Minor Delays",
+                  "disruption": { "category": "RealTime" } }
+            ]},
+            { "id": "waterloo-city", "name": "Waterloo & City", "modeName": "tube", "lineStatuses": [
+                { "statusSeverity": 4, "statusSeverityDescription": "Planned Closure",
+                  "disruption": { "category": "Information" } }
+            ]},
+            { "id": "bakerloo", "name": "Bakerloo", "modeName": "tube", "lineStatuses": [
+                { "statusSeverity": 10, "statusSeverityDescription": "Good Service" }
+            ]}
+        ]"#;
+        let planned = parse_planned(json, date("2026-10-17"), date("2026-10-24")).unwrap();
+
+        let [elizabeth] = planned.disruptions.as_slice() else {
+            panic!("expected one disruption, got {:?}", planned.disruptions)
+        };
+        assert_eq!(elizabeth.line_id, "elizabeth");
+        assert_eq!(elizabeth.level, Level::Minor);
+        assert_eq!(elizabeth.detail, "Late evening changes.");
+        assert_eq!(elizabeth.periods.len(), 2);
     }
 }

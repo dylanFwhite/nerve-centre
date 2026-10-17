@@ -6,6 +6,10 @@ port = 1883
 topic_root = "dev"
 
 [tfl]
+lines = [
+  "bakerloo", "central", "circle", "district", "elizabeth", "hammersmith-city",
+  "jubilee", "metropolitan", "northern", "piccadilly", "victoria", "waterloo-city"
+]
 status_poll_seconds = 60
 planned_poll_seconds = 1800
 planned_days = 7

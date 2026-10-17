@@ -180,6 +180,7 @@
         <div class="phase-head"><h3>Dashboard software</h3><span class="when">Software only</span></div>
         <ul>
           <li>Pollers for TfL (Tube and Elizabeth line: current status and planned disruptions) and the Open-Meteo forecast for London</li>
+          <li>Done: <code>nerve-core</code> (envelope, topics, payloads, config loading, MQTT publisher, clean shutdown) and <code>poller-tfl</code> current status: live every 60 s, published on change, health heartbeat</li>
           <li>Done: Mosquitto 2.0.21 on the hub, listening on the LAN (IPv4, port 1883) with password login. Config in <code>deploy/mosquitto/</code></li>
           <li>A data service that logs every event to SQLite</li>
           <li><code>node-agent</code> on the hub: publishes CPU, memory, temperature, throttling and disk use, plus memory and CPU for each systemd service, every 60 s. This records a baseline before more services are added, so it shows when a service should move to another node</li>
@@ -413,7 +414,7 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
   </div>
 
   <h3 class="sub-h">Payloads</h3>
-  <p class="muted"><code>tfl/status</code>, from TfL's <code>/Line/Mode/tube,elizabeth-line/Status</code>. <code>level</code> is our own rating (<code>good</code>, <code>minor</code>, <code>severe</code>, <code>closed</code>, <code>unknown</code>) mapped from TfL's codes, so the renderer never needs to know them.</p>
+  <p class="muted"><code>tfl/status</code>, from TfL's <code>/Line/{ids}/Status</code>, where <code>{ids}</code> is the comma-separated list of lines in config (<code>[tfl] lines</code>). <code>level</code> is our own rating (<code>good</code>, <code>minor</code>, <code>severe</code>, <code>closed</code>, <code>unknown</code>) mapped from TfL's codes, so the renderer never needs to know them.</p>
   <div class="card code">
 <pre>{ "lines": [
   { "id": "victoria", "name": "Victoria", "mode": "tube", "level": "good",
@@ -421,13 +422,13 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
 ] }</pre>
   </div>
 
-  <p class="muted" style="margin-top:16px"><code>tfl/planned</code>, from the same endpoint with a date range (<code>…/Status/{from}/to/{to}</code>).</p>
+  <p class="muted" style="margin-top:16px"><code>tfl/planned</code>, from <code>/Line/{ids}/Status/{from}/to/{to}</code>. The date range only works with line IDs, not with <code>/Line/Mode/…</code>. The response mixes categories, and only <code>PlannedWork</code> is kept: <code>RealTime</code> delays are already in <code>tfl/status</code>, and <code>Information</code> is the normal timetable (e.g. Waterloo &amp; City not running at weekends). One disruption can cover several separate periods.</p>
   <div class="card code">
 <pre>{ "from": "2026-10-13", "to": "2026-10-19",
   "disruptions": [
-    { "line_id": "district", "description": "Planned Closure",
-      "detail": "No service between Earl's Court and Richmond…",
-      "starts": "2026-10-18T04:30:00Z", "ends": "2026-10-19T23:59:00Z" } ] }</pre>
+    { "line_id": "district", "level": "severe", "description": "Part Closure",
+      "detail": "No service between Turnham Green and Ealing Broadway…",
+      "periods": [ { "starts": "2026-10-17T03:30:00Z", "ends": "2026-10-19T00:29:00Z" } ] } ] }</pre>
   </div>
 
   <p class="muted" style="margin-top:16px"><code>weather/forecast</code>, from Open-Meteo (free, no API key). <code>condition</code> is our own short list (clear, partly cloudy, cloudy, fog, drizzle, rain, heavy rain, snow, thunderstorm) mapped from Open-Meteo's weather codes. <code>hours</code> runs to midnight, local time. Wind is in mph. Sunrise and sunset let the renderer draw night icons after dark.</p>
