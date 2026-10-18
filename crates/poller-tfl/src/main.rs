@@ -4,6 +4,7 @@ mod tfl;
 use std::error::Error;
 use std::path::PathBuf;
 use std::pin::pin;
+use std::process::ExitCode;
 
 use chrono::{DateTime, Utc};
 use nerve_core::mqtt::Publisher;
@@ -13,7 +14,17 @@ use nerve_core::shutdown::shutdown_signal;
 const SERVICE: &str = "poller-tfl";
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> ExitCode {
+    match run().await {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("error: {error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+async fn run() -> Result<(), Box<dyn Error>> {
     let path = PathBuf::from(
         std::env::args()
             .nth(1)

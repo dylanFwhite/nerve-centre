@@ -1,0 +1,14 @@
+# poller-weather on the Pi. Install to /etc/nerve-centre/.
+# Secrets go in poller-weather.local.toml next to it, created on the Pi only.
+
+[mqtt]
+host = "localhost"
+port = 1883
+topic_root = "home"
+
+[weather]
+location = "London"
+latitude = 51.5074
+longitude = -0.1278
+timezone = "Europe/London"
+poll_seconds = 900

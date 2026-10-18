@@ -1,0 +1,20 @@
+[Unit]
+Description=nerve-centre weather poller
+Wants=network-online.target
+After=network-online.target mosquitto.service
+
+[Service]
+User=nerve
+Group=nerve
+ExecStart=/opt/nerve-centre/bin/poller-weather /etc/nerve-centre/poller-weather.toml
+Restart=on-failure
+RestartSec=10
+
+# The service only reads its config and uses the network.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

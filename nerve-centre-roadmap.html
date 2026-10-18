@@ -182,6 +182,7 @@
           <li>Pollers for TfL (Tube and Elizabeth line: current status and planned disruptions) and the Open-Meteo forecast for London</li>
           <li>Done: <code>nerve-core</code> (envelope, topics, payloads, config loading, MQTT publisher, clean shutdown) and <code>poller-tfl</code> current status: live every 60 s, published on change, health heartbeat</li>
           <li>Done: <code>poller-tfl</code> planned works (every 30 min, <code>PlannedWork</code> only) and <code>poller-weather</code> (Open-Meteo every 15 min). All three data topics are live from the dev machine</li>
+          <li>Done: both pollers deployed to the Pi as systemd units, running as the <code>nerve</code> user with their own Mosquitto logins and publishing to <code>home/</code>. Binaries in <code>/opt/nerve-centre/bin</code>, config in <code>/etc/nerve-centre</code>, deployed with <code>just deploy</code></li>
           <li>Done: Mosquitto 2.0.21 on the hub, listening on the LAN (IPv4, port 1883) with password login. Config in <code>deploy/mosquitto/</code></li>
           <li>A data service that logs every event to SQLite</li>
           <li><code>node-agent</code> on the hub: publishes CPU, memory, temperature, throttling and disk use, plus memory and CPU for each systemd service, every 60 s. This records a baseline before more services are added, so it shows when a service should move to another node</li>

@@ -1,0 +1,14 @@
+# poller-tfl on the Pi. Install to /etc/nerve-centre/.
+# Secrets go in poller-tfl.local.toml next to it, created on the Pi only.
+
+[mqtt]
+host = "localhost"
+port = 1883
+topic_root = "home"
+
+[tfl]
+lines = ["bakerloo", "central", "circle", "district", "elizabeth", "hammersmith-city",
+         "jubilee", "metropolitan", "northern", "piccadilly", "victoria", "waterloo-city"]
+status_poll_seconds = 60
+planned_poll_seconds = 1800
+planned_days = 7
