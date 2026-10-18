@@ -1,0 +1,67 @@
+{
+  "latitude": 51.51147,
+  "longitude": -0.13078308,
+  "generationtime_ms": 457.97407627105713,
+  "utc_offset_seconds": 3600,
+  "timezone": "Europe/London",
+  "timezone_abbreviation": "GMT+1",
+  "elevation": 16.0,
+  "current_units": {
+    "time": "unixtime",
+    "interval": "seconds",
+    "temperature_2m": "°C",
+    "apparent_temperature": "°C",
+    "weather_code": "wmo code",
+    "precipitation": "mm",
+    "wind_speed_10m": "mp/h",
+    "wind_gusts_10m": "mp/h"
+  },
+  "current": {
+    "time": 1792239300,
+    "interval": 900,
+    "temperature_2m": 13.5,
+    "apparent_temperature": 9.7,
+    "weather_code": 1,
+    "precipitation": 0.0,
+    "wind_speed_10m": 10.1,
+    "wind_gusts_10m": 22.6
+  },
+  "hourly_units": {
+    "time": "unixtime",
+    "temperature_2m": "°C",
+    "weather_code": "wmo code",
+    "precipitation_probability": "%"
+  },
+  "hourly": {
+    "time": [
+      1792191600, 1792195200, 1792198800, 1792202400, 1792206000, 1792209600,
+      1792213200, 1792216800, 1792220400, 1792224000, 1792227600, 1792231200,
+      1792234800, 1792238400, 1792242000, 1792245600, 1792249200, 1792252800,
+      1792256400, 1792260000, 1792263600, 1792267200, 1792270800, 1792274400
+    ],
+    "temperature_2m": [
+      9.7, 9.2, 8.8, 8.3, 7.9, 7.8, 7.5, 7.6, 7.4, 8.3, 9.5, 10.9, 12.2, 13.3,
+      13.8, 13.7, 13.6, 13.0, 12.2, 11.4, 11.5, 10.8, 10.1, 9.6
+    ],
+    "weather_code": [
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 2, 3, 3, 3, 51, 1, 0, 0, 0
+    ],
+    "precipitation_probability": [
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+    ]
+  },
+  "daily_units": {
+    "time": "unixtime",
+    "temperature_2m_max": "°C",
+    "temperature_2m_min": "°C",
+    "sunrise": "unixtime",
+    "sunset": "unixtime"
+  },
+  "daily": {
+    "time": [1792191600],
+    "temperature_2m_max": [13.9],
+    "temperature_2m_min": [7.4],
+    "sunrise": [1792218468],
+    "sunset": [1792256589]
+  }
+}

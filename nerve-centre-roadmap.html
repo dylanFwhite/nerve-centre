@@ -181,6 +181,7 @@
         <ul>
           <li>Pollers for TfL (Tube and Elizabeth line: current status and planned disruptions) and the Open-Meteo forecast for London</li>
           <li>Done: <code>nerve-core</code> (envelope, topics, payloads, config loading, MQTT publisher, clean shutdown) and <code>poller-tfl</code> current status: live every 60 s, published on change, health heartbeat</li>
+          <li>Done: <code>poller-tfl</code> planned works (every 30 min, <code>PlannedWork</code> only) and <code>poller-weather</code> (Open-Meteo every 15 min). All three data topics are live from the dev machine</li>
           <li>Done: Mosquitto 2.0.21 on the hub, listening on the LAN (IPv4, port 1883) with password login. Config in <code>deploy/mosquitto/</code></li>
           <li>A data service that logs every event to SQLite</li>
           <li><code>node-agent</code> on the hub: publishes CPU, memory, temperature, throttling and disk use, plus memory and CPU for each systemd service, every 60 s. This records a baseline before more services are added, so it shows when a service should move to another node</li>
@@ -431,7 +432,7 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
       "periods": [ { "starts": "2026-10-17T03:30:00Z", "ends": "2026-10-19T00:29:00Z" } ] } ] }</pre>
   </div>
 
-  <p class="muted" style="margin-top:16px"><code>weather/forecast</code>, from Open-Meteo (free, no API key). <code>condition</code> is our own short list (clear, partly cloudy, cloudy, fog, drizzle, rain, heavy rain, snow, thunderstorm) mapped from Open-Meteo's weather codes. <code>hours</code> runs to midnight, local time. Wind is in mph. Sunrise and sunset let the renderer draw night icons after dark.</p>
+  <p class="muted" style="margin-top:16px"><code>weather/forecast</code>, from Open-Meteo (free, no API key). <code>condition</code> is our own short list (clear, partly cloudy, cloudy, fog, drizzle, rain, heavy rain, snow, thunderstorm) mapped from Open-Meteo's weather codes (see Mappings below). <code>hours</code> holds each hour after the current one until midnight, local time. Times are requested as Unix timestamps and converted to Europe/London by the poller, so clock-change days come out right. Wind is in mph. Sunrise and sunset let the renderer draw night icons after dark.</p>
   <div class="card code">
 <pre>{ "location": "London",
   "now":   { "temp_c": 14.2, "feels_like_c": 12.8, "condition": "drizzle", "precip_mm": 0.3,
@@ -450,6 +451,41 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
   "disk_used_pct": 8.1, "uptime_s": 183000,
   "services": [ { "name": "mosquitto", "mem_mb": 4.3, "cpu_pct": 0.1 },
                 { "name": "poller-tfl", "mem_mb": 6.1, "cpu_pct": 0.2 } ] }</pre>
+  </div>
+
+  <h3 class="sub-h">Mappings</h3>
+  <p class="muted">How each poller turns its source's codes into our own short lists, so the renderer never needs to know them.</p>
+  <div class="components two">
+    <div class="card table-wrap">
+      <h3>TfL severity → <code>level</code></h3>
+      <table>
+        <thead><tr><th>Level</th><th>TfL codes</th></tr></thead>
+        <tbody>
+          <tr><td><code>good</code></td><td>10 Good Service, 13 No Step Free Access, 18 No Issues, 19 Information</td></tr>
+          <tr><td><code>minor</code></td><td>0 Special Service, 7 Reduced Service, 9 Minor Delays, 12 Exit Only, 14 Change of Frequency, 15 Diverted, 17 Issues Reported</td></tr>
+          <tr><td><code>severe</code></td><td>3 Part Suspended, 5 Part Closure, 6 Severe Delays, 8 Bus Service, 11 Part Closed</td></tr>
+          <tr><td><code>closed</code></td><td>1 Closed, 2 Suspended, 4 Planned Closure, 16 Not Running, 20 Service Closed</td></tr>
+          <tr><td><code>unknown</code></td><td>Anything else</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card table-wrap">
+      <h3>WMO weather code → <code>condition</code></h3>
+      <table>
+        <thead><tr><th>Condition</th><th>WMO codes</th></tr></thead>
+        <tbody>
+          <tr><td><code>clear</code></td><td>0, 1</td></tr>
+          <tr><td><code>partly_cloudy</code></td><td>2</td></tr>
+          <tr><td><code>cloudy</code></td><td>3, and any code not listed</td></tr>
+          <tr><td><code>fog</code></td><td>45, 48</td></tr>
+          <tr><td><code>drizzle</code></td><td>51, 53, 55, 56, 57</td></tr>
+          <tr><td><code>rain</code></td><td>61, 63, 66, 80, 81</td></tr>
+          <tr><td><code>heavy_rain</code></td><td>65, 67, 82</td></tr>
+          <tr><td><code>snow</code></td><td>71, 73, 75, 77, 85, 86</td></tr>
+          <tr><td><code>thunderstorm</code></td><td>95, 96, 99</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </section>
 

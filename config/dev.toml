@@ -13,3 +13,10 @@ lines = [
 status_poll_seconds = 60
 planned_poll_seconds = 1800
 planned_days = 7
+
+[weather]
+location = "London"
+latitude = 51.5074
+longitude = -0.1278
+timezone = "Europe/London"
+poll_seconds = 900
