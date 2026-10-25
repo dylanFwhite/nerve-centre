@@ -8,3 +8,9 @@
 # Editor settings
 .idea/
 .vscode/
+
+# Local dev notes
+notes.txt
+
+# dev data
+/data/

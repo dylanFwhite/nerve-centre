@@ -358,7 +358,7 @@
     <div class="card"><h3>Pollers</h3><p>Fetch data from TfL and the weather API on a schedule and publish it as events. Only these talk to the outside world.</p></div>
     <div class="card"><h3>Node agent</h3><p>Runs on every Linux node. Every 60 s it publishes the node's CPU, memory, temperature, throttling and disk use, plus memory and CPU for each systemd service it's configured to watch, read from systemd's own accounting.</p></div>
     <div class="card"><h3>Mosquitto</h3><p>The event bus. Retained messages hold the latest value on each topic, so new subscribers get current state straight away. Every payload carries an event ID and publisher timestamp.</p></div>
-    <div class="card"><h3>Data service</h3><p>Subscribes to everything at QoS 1 with a persistent session, so the broker queues events while it restarts. Skips event IDs it has already stored, which covers retained resends and duplicate deliveries. It's the only writer to the SQLite database.</p></div>
+    <div class="card"><h3>Data service</h3><p>Subscribes to everything at QoS 1 with a persistent session, so the broker queues events while it restarts. Skips event IDs it has already stored, which covers retained resends and duplicate deliveries. It acknowledges each message only after writing it, so a crash means a redelivery, never a lost event. It's the only writer to the SQLite database.</p></div>
     <div class="card"><h3>Renderer + HTTP</h3><p>Keeps the latest state in memory and tracks when it last heard from each source. It redraws the PNG when the status changes or when a source goes stale or recovers, then serves it. It doesn't depend on the database.</p></div>
     <div class="card"><h3>Display Pi</h3><p>Pi with the Inky Impression 7.3" attached. A small Python script using Pimoroni's driver fetches the PNG and refreshes the panel only when the image has changed. This is the only part of the system not written in Rust.</p></div>
     <div class="card"><h3>Greenhouse nodes <span class="tag">Future</span></h3><p>Sensor and watering nodes (hardware to be chosen) publishing to the same bus. They keep a local fallback schedule if the hub is down.</p></div>
@@ -378,6 +378,12 @@
 );
 CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
   </div>
+  <ul class="muted small">
+    <li><code>payload</code> is the whole envelope exactly as received, so the original survives any later change to a payload format. The data service reads only the envelope's <code>id</code>, <code>ts</code>, <code>source</code> and <code>v</code>, and logs and skips messages that aren't valid envelopes.</li>
+    <li>WAL mode with <code>synchronous = NORMAL</code>. The schema version is kept in <code>PRAGMA user_version</code> and upgraded at startup.</li>
+    <li>The file lives at <code>/var/lib/nerve-centre/events.db</code> on the Pi (systemd's <code>StateDirectory</code>) and <code>data/dev-events.db</code> in development.</li>
+    <li>Built with <code>rusqlite</code> and its <code>bundled</code> feature, so SQLite is compiled into the binary.</li>
+  </ul>
 </section>
 
 <section>
