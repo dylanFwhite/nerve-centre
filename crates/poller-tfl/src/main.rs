@@ -7,7 +7,7 @@ use std::pin::pin;
 use std::process::ExitCode;
 
 use chrono::{DateTime, Utc};
-use nerve_core::mqtt::Publisher;
+use nerve_core::mqtt::Connection;
 use nerve_core::poll::{PublishOnChange, ticker};
 use nerve_core::shutdown::shutdown_signal;
 
@@ -33,12 +33,12 @@ async fn run() -> Result<(), Box<dyn Error>> {
     let config: config::Config = nerve_core::config::load(&path)?;
 
     let api = tfl::Api::new(config.tfl.app_key.clone(), &config.tfl.lines)?;
-    let publisher = Publisher::connect(&config.mqtt, SERVICE)?;
+    let mqtt = Connection::connect(&config.mqtt, SERVICE)?;
 
     let mut status_ticker = ticker(config.tfl.status_poll_seconds);
     let mut planned_ticker = ticker(config.tfl.planned_poll_seconds);
-    let mut status_out = PublishOnChange::new(publisher.topics().tfl_status());
-    let mut planned_out = PublishOnChange::new(publisher.topics().tfl_planned());
+    let mut status_out = PublishOnChange::new(mqtt.topics().tfl_status());
+    let mut planned_out = PublishOnChange::new(mqtt.topics().tfl_planned());
 
     let mut shutdown = pin!(shutdown_signal());
     let mut last_success: Option<DateTime<Utc>> = None;
@@ -53,16 +53,16 @@ async fn run() -> Result<(), Box<dyn Error>> {
                 match api.fetch_status().await {
                     Ok(status) => {
                         last_success = Some(Utc::now());
-                        status_out.publish(&publisher, status).await?
+                        status_out.publish(&mqtt, status).await?
                     }
                     Err(error) => eprintln!("tfl status: {error}")
                 }
-                publisher.report_online(last_success).await?;
+                mqtt.report_online(last_success).await?;
             }
 
             _ = planned_ticker.tick() => {
                 match api.fetch_planned(config.tfl.planned_days).await {
-                    Ok(planned) => planned_out.publish(&publisher, planned).await?,
+                    Ok(planned) => planned_out.publish(&mqtt, planned).await?,
                     Err(error) => eprintln!("tfl planned: {error}")
                 }
             }
@@ -70,6 +70,6 @@ async fn run() -> Result<(), Box<dyn Error>> {
     }
 
     println!("shutting down");
-    publisher.disconnect(last_success).await?;
+    mqtt.disconnect(last_success).await?;
     Ok(())
 }

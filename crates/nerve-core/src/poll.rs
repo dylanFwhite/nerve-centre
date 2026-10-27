@@ -6,7 +6,7 @@ use std::time::Duration;
 use tokio::time::{Interval, MissedTickBehavior, interval};
 
 use crate::envelope::Payload;
-use crate::mqtt::{MqttError, Publisher};
+use crate::mqtt::{Connection, MqttError};
 
 pub fn ticker(seconds: u64) -> Interval {
     let mut ticker = interval(Duration::from_secs(seconds));
@@ -25,9 +25,9 @@ impl<T: Payload + Clone> PublishOnChange<T> {
     }
 
     /// Publishes `data` if it has changed. The first call always publishes.
-    pub async fn publish(&mut self, publisher: &Publisher, data: T) -> Result<(), MqttError> {
+    pub async fn publish(&mut self, mqtt: &Connection, data: T) -> Result<(), MqttError> {
         if self.last.as_ref() != Some(&data) {
-            publisher.publish(&self.topic, data.clone()).await?;
+            mqtt.publish(&self.topic, data.clone()).await?;
             println!("published {}", self.topic);
             self.last = Some(data);
         }

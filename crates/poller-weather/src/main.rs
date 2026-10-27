@@ -7,7 +7,7 @@ use std::pin::pin;
 use std::process::ExitCode;
 
 use chrono::{DateTime, Utc};
-use nerve_core::mqtt::Publisher;
+use nerve_core::mqtt::Connection;
 use nerve_core::poll::{PublishOnChange, ticker};
 use nerve_core::shutdown::shutdown_signal;
 
@@ -39,10 +39,10 @@ async fn run() -> Result<(), Box<dyn Error>> {
         settings.longitude,
         settings.timezone,
     )?;
-    let publisher = Publisher::connect(&config.mqtt, SERVICE)?;
+    let mqtt = Connection::connect(&config.mqtt, SERVICE)?;
 
     let mut forecast_ticker = ticker(settings.poll_seconds);
-    let mut forecast_out = PublishOnChange::new(publisher.topics().weather_forecast());
+    let mut forecast_out = PublishOnChange::new(mqtt.topics().weather_forecast());
 
     let mut shutdown = pin!(shutdown_signal());
     let mut last_success: Option<DateTime<Utc>> = None;
@@ -57,16 +57,16 @@ async fn run() -> Result<(), Box<dyn Error>> {
                 match api.fetch().await {
                     Ok(forecast) => {
                         last_success = Some(Utc::now());
-                        forecast_out.publish(&publisher, forecast).await?;
+                        forecast_out.publish(&mqtt, forecast).await?;
                     }
                     Err(error) => eprintln!("weather: {error}"),
                 }
-                publisher.report_online(last_success).await?;
+                mqtt.report_online(last_success).await?;
             }
         }
     }
 
     println!("shutting down");
-    publisher.disconnect(last_success).await?;
+    mqtt.disconnect(last_success).await?;
     Ok(())
 }
