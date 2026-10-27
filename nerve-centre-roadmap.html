@@ -380,7 +380,7 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
   </div>
   <ul class="muted small">
     <li><code>payload</code> is the whole envelope exactly as received, so the original survives any later change to a payload format. The data service reads only the envelope's <code>id</code>, <code>ts</code>, <code>source</code> and <code>v</code>, and logs and skips messages that aren't valid envelopes.</li>
-    <li>WAL mode with <code>synchronous = NORMAL</code>. The schema version is kept in <code>PRAGMA user_version</code> and upgraded at startup.</li>
+    <li>WAL mode with <code>synchronous = FULL</code>, so an event is on disk before it's acknowledged and survives a power cut. The schema version is kept in <code>PRAGMA user_version</code> and upgraded at startup.</li>
     <li>The file lives at <code>/var/lib/nerve-centre/events.db</code> on the Pi (systemd's <code>StateDirectory</code>) and <code>data/dev-events.db</code> in development.</li>
     <li>Built with <code>rusqlite</code> and its <code>bundled</code> feature, so SQLite is compiled into the binary.</li>
   </ul>

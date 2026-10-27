@@ -6,3 +6,6 @@ publish.workspace = true
 
 [dependencies]
 nerve-core.workspace = true
+chrono.workspace = true
+rusqlite.workspace = true
+thiserror.workspace = true
