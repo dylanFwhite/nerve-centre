@@ -170,6 +170,7 @@
           <li>Done: SSH key-only login, Wi-Fi power saving off, automatic security updates on</li>
           <li>Done: 192.168.1.252 reserved for the Pi's Wi-Fi in the router (Zyxel EX3301-T0, Home Networking → Static DHCP)</li>
           <li>Done: full upgrade, SD card removed (kept for recovery), reboot confirmed the reserved IP and Wi-Fi power saving staying off</li>
+          <li>Done (28 Oct): <code>cgroup_enable=memory</code> added to <code>/boot/firmware/cmdline.txt</code>. The firmware adds <code>cgroup_disable=memory</code>, so without this systemd can't report memory per service. Backup in <code>cmdline.txt.bak</code></li>
           <li>Kernel and firmware updates are manual: run <code>sudo apt full-upgrade</code> every few weeks</li>
         </ul>
       </div>
@@ -449,15 +450,16 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
   "hours": [ { "time": "2026-10-12T21:00:00+01:00", "temp_c": 13.1, "condition": "cloudy", "rain_chance": 20 } ] }</pre>
   </div>
 
-  <p class="muted" style="margin-top:16px"><code>node/{name}/metrics</code>, from <code>node-metrics</code>. Node figures are read directly from <code>/proc</code> and <code>/sys</code>, with no system-info library, so each calculation is explicit and tested against fixtures captured on the Pi. CPU is averaged over the interval from the change in <code>/proc/stat</code>'s counters, so the first sample after starting only sets a baseline. Memory used is <code>MemTotal − MemAvailable</code>. Per-service figures come from <code>systemctl show</code> (systemd's <code>MemoryCurrent</code>, and the change in <code>CPUUsageNSec</code> between samples) for the units listed in config: <code>mosquitto</code> and every nerve-centre service. <code>throttled</code> is true if the Pi is throttling or under-voltage.</p>
+  <p class="muted" style="margin-top:16px"><code>node/{name}/metrics</code>, from <code>node-metrics</code>. Node figures are read directly from <code>/proc</code> and <code>/sys</code>, with no system-info library, so each calculation is explicit and tested against fixtures captured on the Pi. CPU is averaged over the interval from the change in <code>/proc/stat</code>'s counters, so the first sample after starting only sets a baseline. Memory used is <code>MemTotal − MemAvailable</code>. Per-service figures come from <code>systemctl show</code> (systemd's <code>MemoryCurrent</code>, and the change in <code>CPUUsageNSec</code> between samples) for the units listed in config: <code>mosquitto</code> and every nerve-centre service. <code>throttle</code> lists the firmware's flags (<code>under_voltage</code>, <code>freq_capped</code>, <code>throttled</code>, <code>soft_temp_limit</code>) happening <code>now</code> and any seen <code>since_boot</code>, which catches dips between samples. It is <code>null</code> on a node that can't report them, as are <code>temp_c</code> without a sensor and a service's figures while it isn't running. Memory is in MiB. Throttling comes from <code>vcgencmd get_throttled</code>, which needs the <code>video</code> group, so the unit adds <code>SupplementaryGroups=video</code> for this service only. On the hub, a USB kernel worker (<code>usb_hub_wq</code>) sits permanently in uninterruptible sleep, so <code>load_1m</code> idles at about 1.0, not 0. Thresholds should allow for this, and <code>cpu_pct</code> is the real measure of how busy a node is.</p>
   <div class="card code">
 <pre>{ "interval_s": 60,
-  "cpu_pct": 12.4, "load_1m": 0.31,
-  "mem_used_mb": 812, "mem_total_mb": 4096,
-  "temp_c": 51.2, "throttled": false,
-  "disk_used_pct": 8.1, "uptime_s": 183000,
-  "services": [ { "name": "mosquitto", "mem_mb": 4.3, "cpu_pct": 0.1 },
-                { "name": "poller-tfl", "mem_mb": 6.1, "cpu_pct": 0.2 } ] }</pre>
+  "cpu_pct": 0.1, "load_1m": 1.0,
+  "mem_used_mb": 280, "mem_total_mb": 4049,
+  "temp_c": 49.1,
+  "throttle": { "now": [], "since_boot": ["under_voltage"] },
+  "disk_used_pct": 1.8, "uptime_s": 901640,
+  "services": [ { "name": "mosquitto", "mem_mb": 4.9, "cpu_pct": 0.1 },
+                { "name": "node-metrics", "mem_mb": null, "cpu_pct": null } ] }</pre>
   </div>
 
   <h3 class="sub-h">Mappings</h3>

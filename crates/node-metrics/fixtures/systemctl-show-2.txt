@@ -1,0 +1,19 @@
+MemoryCurrent=5062656
+CPUUsageNSec=51430000
+Id=mosquitto.service
+
+MemoryCurrent=9617408
+CPUUsageNSec=87197000
+Id=poller-tfl.service
+
+MemoryCurrent=12238848
+CPUUsageNSec=88949000
+Id=poller-weather.service
+
+MemoryCurrent=5652480
+CPUUsageNSec=23498000
+Id=data-service.service
+
+MemoryCurrent=[not set]
+CPUUsageNSec=[not set]
+Id=node-metrics.service

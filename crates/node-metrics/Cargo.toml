@@ -1,0 +1,8 @@
+[package]
+name = "node-metrics"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+nerve-core.workspace = true
