@@ -46,7 +46,7 @@ impl Store {
     }
 
     #[cfg(test)]
-    fn open_in_memory() -> Result<Self, StoreError> {
+    pub fn open_in_memory() -> Result<Self, StoreError> {
         Self::init(Connection::open_in_memory()?)
     }
 

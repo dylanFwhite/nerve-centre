@@ -9,3 +9,6 @@ nerve-core.workspace = true
 chrono.workspace = true
 rusqlite.workspace = true
 thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true

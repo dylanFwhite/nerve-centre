@@ -197,7 +197,10 @@ dependencies = [
  "chrono",
  "nerve-core",
  "rusqlite",
+ "serde",
+ "serde_json",
  "thiserror",
+ "uuid",
 ]
 
 [[package]]
