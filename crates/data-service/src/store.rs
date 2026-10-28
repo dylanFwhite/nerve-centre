@@ -76,7 +76,7 @@ impl Store {
     pub fn latest_by_topic(&self, prefix: &str) -> Result<Vec<(String, String)>, StoreError> {
         // SQLite fills the other columns from the row holding MAX(ts).
         let mut statement = self.db.prepare(
-            "SELECT topic, payload, MAX(ts) FROM events
+            "SELECT topic, payload, MAX(received_at) FROM events
              WHERE substr(topic, 1, length(?1)) = ?1
              GROUP BY topic",
         )?;
@@ -208,6 +208,24 @@ mod tests {
                     "weather".to_string()
                 ),
             ]
+        );
+    }
+
+    #[test]
+    fn latest_means_most_recently_received() {
+        let store = Store::open_in_memory().unwrap();
+        let online = event("1", "home/service/poller-tfl", 2000, "online");
+        // A Last Will: published after `online`, but stamped earlier.
+        let mut will = event("2", "home/service/poller-tfl", 1000, "offline");
+        will.received_at = DateTime::from_timestamp_millis(3000).unwrap();
+        store.insert(&online).unwrap();
+        store.insert(&will).unwrap();
+
+        let latest = store.latest_by_topic("home/service/").unwrap();
+
+        assert_eq!(
+            latest,
+            [("home/service/poller-tfl".to_string(), "offline".to_string())]
         );
     }
 }

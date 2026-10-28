@@ -4,7 +4,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 pi := "dylan@192.168.1.252"
 target := "aarch64-unknown-linux-gnu"
-services := "poller-tfl poller-weather"
+services := "poller-tfl poller-weather data-service"
 
 # List the available commands
 default:
@@ -28,7 +28,7 @@ deploy service: (build service)
     ssh -t {{pi}} "sudo install -m 755 /tmp/{{service}} /opt/nerve-centre/bin/ && sudo install -m 644 /tmp/{{service}}.service /etc/systemd/system/ && sudo install -o root -g nerve -m 640 /tmp/{{service}}.toml /etc/nerve-centre/ && rm /tmp/{{service}} /tmp/{{service}}.service /tmp/{{service}}.toml && sudo systemctl daemon-reload && sudo systemctl enable {{service}} && sudo systemctl restart {{service}}"
 
 # Deploy every service
-deploy-all: (deploy "poller-tfl") (deploy "poller-weather")
+deploy-all: (deploy "poller-tfl") (deploy "poller-weather") (deploy "data-service")
 
 # Show a service's recent log on the Pi. Add -f to keep following it
 logs service *args:

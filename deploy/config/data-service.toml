@@ -1,0 +1,10 @@
+# data-service on the Pi. Install to /etc/nerve-centre/.
+# Secrets go in data-service.local.toml next to it, created on the Pi only.
+
+[mqtt]
+host = "localhost"
+port = 1883
+topic_root = "home"
+
+[store]
+path = "/var/lib/nerve-centre/events.db"

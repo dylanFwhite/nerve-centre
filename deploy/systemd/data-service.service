@@ -1,0 +1,24 @@
+[Unit]
+Description=nerve-centre data service (event log)
+Wants=network-online.target
+After=network-online.target mosquitto.service
+
+[Service]
+User=nerve
+Group=nerve
+ExecStart=/opt/nerve-centre/bin/data-service /etc/nerve-centre/data-service.toml
+Restart=on-failure
+RestartSec=10
+
+# Creates /var/lib/nerve-centre owned by nerve, keeps it across restarts
+# and reboots, and makes it the one writable place under ProtectSystem.
+StateDirectory=nerve-centre
+StateDirectoryMode=0750
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
