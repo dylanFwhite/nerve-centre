@@ -20,3 +20,6 @@ latitude = 51.5074
 longitude = -0.1278
 timezone = "Europe/London"
 poll_seconds = 900
+
+[store]
+path = "data/dev-events.db"
