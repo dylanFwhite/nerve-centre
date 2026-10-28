@@ -184,8 +184,8 @@
           <li>Done: <code>poller-tfl</code> planned works (every 30 min, <code>PlannedWork</code> only) and <code>poller-weather</code> (Open-Meteo every 15 min). All three data topics are live from the dev machine</li>
           <li>Done: both pollers deployed to the Pi as systemd units, running as the <code>nerve</code> user with their own Mosquitto logins and publishing to <code>home/</code>. Binaries in <code>/opt/nerve-centre/bin</code>, config in <code>/etc/nerve-centre</code>, deployed with <code>just deploy</code></li>
           <li>Done: Mosquitto 2.0.21 on the hub, listening on the LAN (IPv4, port 1883) with password login. Config in <code>deploy/mosquitto/</code></li>
-          <li>A data service that logs every event to SQLite</li>
-          <li><code>node-agent</code> on the hub: publishes CPU, memory, temperature, throttling and disk use, plus memory and CPU for each systemd service, every 60 s. This records a baseline before more services are added, so it shows when a service should move to another node</li>
+          <li>Done: <code>data-service</code> logs every event to SQLite at <code>/var/lib/nerve-centre/events.db</code> on the Pi. It uses a persistent QoS 1 session, acknowledges only after each write, skips duplicate IDs and stores only online/offline changes from <code>service/</code> topics. Restarts and crashes, including its own, are recorded without losing or repeating events. <code>nerve-core</code> gained subscriptions (<code>mqtt::Connection</code>) and a <code>listen</code> example for watching the dev topics. Mosquitto now queues up to 10,000 messages per offline session</li>
+          <li><code>node-metrics</code> on the hub: publishes CPU, memory, temperature, throttling and disk use, plus memory and CPU for each systemd service, every 60 s. This records a baseline before more services are added, so it shows when a service should move to another node</li>
           <li>Renderer that draws the dashboard as a PNG and serves it over HTTP</li>
         </ul>
         <p class="outcome">Useful straight away: check the dashboard in a browser before leaving.</p>
@@ -199,7 +199,7 @@
           <li>A small Python client on the display Pi fetches the PNG and, using Pimoroni's <code>inky</code> library, refreshes the panel only when it has changed</li>
           <li>Prototype on the spare Pi 4, move to a small board later</li>
           <li>Frame and mount it by the door</li>
-          <li>Display health: the client publishes a <code>service/display-client</code> heartbeat with the time of its last successful refresh, and <code>node-agent</code> runs on the display Pi too</li>
+          <li>Display health: the client publishes a <code>service/display-client</code> heartbeat with the time of its last successful refresh, and <code>node-metrics</code> runs on the display Pi too</li>
         </ul>
         <p class="outcome">The dashboard is on the wall.</p>
       </div>
@@ -210,7 +210,7 @@
         <div class="phase-head"><h3>Desk status display</h3><span class="when">Needs a small display</span></div>
         <ul>
           <li>A small LCD or similar on the desk, chosen for live updates rather than e-ink</li>
-          <li>Shows each node's state (OK, warning or stale) from <code>node/{name}/stats</code>, plus its services</li>
+          <li>Shows each node's state (OK, warning or stale) from <code>node/{name}/metrics</code>, plus its services</li>
           <li>24-hour sparklines from read-only queries on the data service's SQLite file, the first use of the analytics path</li>
         </ul>
         <p class="outcome">The health of every node and service is visible at a glance.</p>
@@ -259,7 +259,7 @@
   <p class="muted">Everything except the two displays runs on the Pi 5. Services talk only through the event bus, so the dashboard keeps working even if storage has a problem.</p>
 
   <div class="card diagram">
-    <svg viewBox="0 0 710 635" role="img" aria-label="Architecture: external APIs feed pollers, which publish to Mosquitto. A node agent publishes resource stats for the hub and each of its services. The data service and the renderer both subscribe. The renderer serves a PNG to the display Pi. The desk display subscribes to Mosquitto for live node health and gets sparklines from read-only analytics queries on SQLite. Greenhouse nodes are a future addition.">
+    <svg viewBox="0 0 710 635" role="img" aria-label="Architecture: external APIs feed pollers, which publish to Mosquitto. The node metrics service publishes resource stats for the hub and each of its services. The data service and the renderer both subscribe. The renderer serves a PNG to the display Pi. The desk display subscribes to Mosquitto for live node health and gets sparklines from read-only analytics queries on SQLite. Greenhouse nodes are a future addition.">
       <defs>
         <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
           <path d="M0,0 L10,5 L0,10 z" class="arrowhead"/>
@@ -283,9 +283,9 @@
       <text class="t-title" x="435" y="144" text-anchor="middle">Pollers</text>
       <text class="t-sub" x="435" y="162" text-anchor="middle">Fetch data, publish events</text>
 
-      <!-- Node agent -->
+      <!-- Node metrics -->
       <rect class="box" x="185" y="120" width="135" height="56" rx="10"/>
-      <text class="t-title" x="252" y="144" text-anchor="middle">Node agent</text>
+      <text class="t-title" x="252" y="144" text-anchor="middle">Node metrics</text>
       <text class="t-sub" x="252" y="162" text-anchor="middle">Node + service stats</text>
 
       <!-- Mosquitto -->
@@ -356,7 +356,7 @@
 
   <div class="components">
     <div class="card"><h3>Pollers</h3><p>Fetch data from TfL and the weather API on a schedule and publish it as events. Only these talk to the outside world.</p></div>
-    <div class="card"><h3>Node agent</h3><p>Runs on every Linux node. Every 60 s it publishes the node's CPU, memory, temperature, throttling and disk use, plus memory and CPU for each systemd service it's configured to watch, read from systemd's own accounting.</p></div>
+    <div class="card"><h3>Node metrics</h3><p>Runs on every Linux node. Every 60 s it publishes the node's CPU, memory, temperature, throttling and disk use, plus memory and CPU for each systemd service it's configured to watch, read from systemd's own accounting.</p></div>
     <div class="card"><h3>Mosquitto</h3><p>The event bus. Retained messages hold the latest value on each topic, so new subscribers get current state straight away. Every payload carries an event ID and publisher timestamp.</p></div>
     <div class="card"><h3>Data service</h3><p>Subscribes to everything at QoS 1 with a persistent session, so the broker queues events while it restarts. Skips event IDs it has already stored, which covers retained resends and duplicate deliveries. It acknowledges each message only after writing it, so a crash means a redelivery, never a lost event. It's the only writer to the SQLite database.</p></div>
     <div class="card"><h3>Renderer + HTTP</h3><p>Keeps the latest state in memory and tracks when it last heard from each source. It redraws the PNG when the status changes or when a source goes stale or recovers, then serves it. It doesn't depend on the database.</p></div>
@@ -397,7 +397,7 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
         <tr><td><code>{root}/tfl/status</code></td><td>Current status of every Tube line and the Elizabeth line</td><td>On change · polled every 60 s</td></tr>
         <tr><td><code>{root}/tfl/planned</code></td><td>Planned disruptions for the next 7 days</td><td>On change · polled every 30 min</td></tr>
         <tr><td><code>{root}/weather/forecast</code></td><td>London: now and the rest of today</td><td>On change · polled every 15 min</td></tr>
-        <tr><td><code>{root}/node/{name}/stats</code></td><td>Node resources: CPU, memory, temperature, throttling, disk, and CPU and memory per service</td><td>Every 60 s, not on change</td></tr>
+        <tr><td><code>{root}/node/{name}/metrics</code></td><td>Node resources: CPU, memory, temperature, throttling, disk, and CPU and memory per service</td><td>Every 60 s, not on change</td></tr>
         <tr><td><code>{root}/service/{name}</code></td><td>Service health: online or offline, and the time of the last successful fetch</td><td>Every poll · offline set by Last Will</td></tr>
       </tbody>
     </table>
@@ -449,7 +449,7 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
   "hours": [ { "time": "2026-10-12T21:00:00+01:00", "temp_c": 13.1, "condition": "cloudy", "rain_chance": 20 } ] }</pre>
   </div>
 
-  <p class="muted" style="margin-top:16px"><code>node/{name}/stats</code>, from <code>node-agent</code>. CPU is averaged over the interval. Per-service figures come from systemd's <code>MemoryCurrent</code> and the change in <code>CPUUsageNSec</code> between samples. <code>throttled</code> is true if the Pi is throttling or under-voltage.</p>
+  <p class="muted" style="margin-top:16px"><code>node/{name}/metrics</code>, from <code>node-metrics</code>. Node figures are read directly from <code>/proc</code> and <code>/sys</code>, with no system-info library, so each calculation is explicit and tested against fixtures captured on the Pi. CPU is averaged over the interval from the change in <code>/proc/stat</code>'s counters, so the first sample after starting only sets a baseline. Memory used is <code>MemTotal − MemAvailable</code>. Per-service figures come from <code>systemctl show</code> (systemd's <code>MemoryCurrent</code>, and the change in <code>CPUUsageNSec</code> between samples) for the units listed in config: <code>mosquitto</code> and every nerve-centre service. <code>throttled</code> is true if the Pi is throttling or under-voltage.</p>
   <div class="card code">
 <pre>{ "interval_s": 60,
   "cpu_pct": 12.4, "load_1m": 0.31,
@@ -560,7 +560,7 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
 │   ├── poller-tfl/
 │   ├── poller-weather/
 │   ├── data-service/
-│   ├── node-agent/       <span class="c"># node and per-service resource stats</span>
+│   ├── node-metrics/     <span class="c"># node and per-service resource stats</span>
 │   └── renderer/         <span class="c"># includes the HTTP endpoint</span>
 ├── display-client/       <span class="c"># Python, runs on the display Pi (outside the Cargo workspace)</span>
 ├── deploy/
