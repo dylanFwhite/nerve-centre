@@ -6,6 +6,7 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use rumqttc::{
     AsyncClient, ConnectionError, Event, LastWill, MqttOptions, Outgoing, Packet, Publish, QoS,
+    SubscribeFilter,
 };
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -43,7 +44,7 @@ impl Message {
 
 /// What a subscribing service listens to, and where messages go.
 struct Subscription {
-    filter: String,
+    filters: Vec<String>,
     sender: mpsc::Sender<Message>,
 }
 
@@ -61,14 +62,14 @@ impl Connection {
         Self::start(config, service, None)
     }
 
-    /// Connects with a persistent session subscribed to `filter`.
+    /// Connects with a persistent session subscribed to every one of `filters`.
     pub fn subscribe(
         config: &MqttConfig,
         service: &str,
-        filter: String,
+        filters: Vec<String>,
     ) -> Result<(Self, mpsc::Receiver<Message>), MqttError> {
         let (sender, receiver) = mpsc::channel(100);
-        let mqtt = Self::start(config, service, Some(Subscription { filter, sender }))?;
+        let mqtt = Self::start(config, service, Some(Subscription { filters, sender }))?;
         Ok((mqtt, receiver))
     }
 
@@ -117,8 +118,11 @@ impl Connection {
                         // Subscribe on every connect, in case the broker has
                         // expired the session.
                         if let Some(subscription) = &subscription
-                            && let Err(error) = event_loop_client
-                                .try_subscribe(&subscription.filter, QoS::AtLeastOnce)
+                            && let Err(error) = event_loop_client.try_subscribe_many(
+                                subscription.filters.iter().map(|filter| {
+                                    SubscribeFilter::new(filter.clone(), QoS::AtLeastOnce)
+                                }),
+                            )
                         {
                             eprintln!("mqtt: can't subscribe: {error}")
                         }

@@ -21,8 +21,8 @@ struct Config {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let config: Config = config::load(Path::new("config/dev.toml"))?;
-    let filter = Topics::new(&config.mqtt.topic_root)?.all();
-    let (mqtt, mut messages) = Connection::subscribe(&config.mqtt, "listen", filter)?;
+    let filters = vec![Topics::new(&config.mqtt.topic_root)?.all()];
+    let (mqtt, mut messages) = Connection::subscribe(&config.mqtt, "listen", filters)?;
 
     let mut shutdown = pin!(shutdown_signal());
 

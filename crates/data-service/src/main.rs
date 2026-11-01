@@ -45,7 +45,7 @@ async fn run() -> Result<(), Box<dyn Error>> {
 
     let topics = Topics::new(&config.mqtt.topic_root)?;
     let mut recorder = Recorder::new(store, topics.service(""))?;
-    let (mqtt, mut messages) = Connection::subscribe(&config.mqtt, SERVICE, topics.all())?;
+    let (mqtt, mut messages) = Connection::subscribe(&config.mqtt, SERVICE, vec![topics.all()])?;
 
     let mut heartbeat = ticker(HEARTBEAT_SECONDS);
     let mut shutdown = pin!(shutdown_signal());
