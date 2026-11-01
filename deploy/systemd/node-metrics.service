@@ -1,0 +1,23 @@
+[Unit]
+Description=nerve-centre node metrics
+Wants=network-online.target
+After=network-online.target mosquitto.service
+
+[Service]
+User=nerve
+Group=nerve
+# vcgencmd needs the video group to read the firmware's throttling flags.
+SupplementaryGroups=video
+ExecStart=/opt/nerve-centre/bin/node-metrics /etc/nerve-centre/node-metrics.toml
+Restart=on-failure
+RestartSec=10
+
+# The service only reads /proc, /sys and its config, and asks systemd
+# about units.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

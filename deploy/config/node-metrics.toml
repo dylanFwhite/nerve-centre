@@ -1,0 +1,12 @@
+# node-metrics on the Pi. Install to /etc/nerve-centre/.
+# Secrets go in node-metrics.local.toml next to it, created on the Pi only.
+
+[mqtt]
+host = "localhost"
+port = 1883
+topic_root = "home"
+
+[node]
+# name defaults to the hostname (nerve-centre)
+interval_seconds = 60
+units = ["mosquitto", "poller-tfl", "poller-weather", "data-service", "node-metrics"]
