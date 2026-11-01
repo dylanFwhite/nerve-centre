@@ -45,6 +45,7 @@ pub enum ThrottleFlag {
 pub struct ServiceMetrics {
     pub name: String,
     pub mem_mb: Option<f64>,
+    // Average over the interval, as a share of the whole node
     pub cpu_pct: Option<f64>,
 }
 

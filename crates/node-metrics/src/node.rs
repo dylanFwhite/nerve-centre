@@ -151,6 +151,11 @@ pub enum ReadError {
         path: &'static str,
         source: io::Error,
     },
+    #[error("{command} failed: {stderr}")]
+    Command {
+        command: &'static str,
+        stderr: String,
+    },
     #[error(transparent)]
     Parse(#[from] ParseError),
 }
