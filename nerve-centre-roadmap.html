@@ -152,7 +152,7 @@
     <div class="card decision"><h3>Event bus</h3><p>Eclipse Mosquitto (MQTT)</p></div>
     <div class="card decision"><h3>Services</h3><p>One binary per service, each its own systemd unit, restarted independently</p></div>
     <div class="card decision"><h3>Storage</h3><p>SQLite (WAL mode), written only by the data service</p></div>
-    <div class="card decision"><h3>Display</h3><p>Pimoroni Inky Impression 7.3" (6-colour Spectra 6 e-ink), image rendered on the hub</p></div>
+    <div class="card decision"><h3>Display</h3><p>Pimoroni Inky Impression 7.3" (6-colour Spectra 6 e-ink) on battery. The image is rendered and dithered on the hub</p></div>
     <div class="card decision"><h3>First project</h3><p>Commute dashboard: Tube and Elizabeth line status (now and 7 days ahead) and London weather from Open-Meteo</p></div>
   </div>
 </section>
@@ -186,8 +186,8 @@
           <li>Done: both pollers deployed to the Pi as systemd units, running as the <code>nerve</code> user with their own Mosquitto logins and publishing to <code>home/</code>. Binaries in <code>/opt/nerve-centre/bin</code>, config in <code>/etc/nerve-centre</code>, deployed with <code>just deploy</code></li>
           <li>Done: Mosquitto 2.0.21 on the hub, listening on the LAN (IPv4, port 1883) with password login. Config in <code>deploy/mosquitto/</code></li>
           <li>Done: <code>data-service</code> logs every event to SQLite at <code>/var/lib/nerve-centre/events.db</code> on the Pi. It uses a persistent QoS 1 session, acknowledges only after each write, skips duplicate IDs and stores only online/offline changes from <code>service/</code> topics. Restarts and crashes, including its own, are recorded without losing or repeating events. <code>nerve-core</code> gained subscriptions (<code>mqtt::Connection</code>) and a <code>listen</code> example for watching the dev topics. Mosquitto now queues up to 10,000 messages per offline session</li>
-          <li><code>node-metrics</code> on the hub: publishes CPU, memory, temperature, throttling and disk use, plus memory and CPU for each systemd service, every 60 s. This records a baseline before more services are added, so it shows when a service should move to another node</li>
-          <li>Renderer that draws the dashboard as a PNG and serves it over HTTP</li>
+          <li>Done: <code>node-metrics</code> on the hub publishes CPU, load, memory, temperature, throttling flags (now and since boot) and disk use, plus memory and CPU for each watched systemd unit, to <code>node/nerve-centre/metrics</code> every 60 s. Every sample is stored by the data service, so the baseline before the renderer is now being recorded. Figures are parsed from <code>/proc</code>, <code>/sys</code>, <code>systemctl show</code> and <code>vcgencmd</code>, with tests against fixtures captured on the hub. Each instance connects as <code>node-metrics@{node}</code>, ready for the display Pi</li>
+          <li>Renderer that draws the dashboard and serves it over HTTP (see Dashboard design below). Built in two steps: first an SVG template drawn by <code>resvg</code> into a full-colour PNG, then our own pass that converts every pixel to one of the six inks (solid inks, ordered-dither tints, fixed patterns) and writes a six-colour palette PNG</li>
         </ul>
         <p class="outcome">Useful straight away: check the dashboard in a browser before leaving.</p>
       </div>
@@ -197,10 +197,13 @@
       <div class="card">
         <div class="phase-head"><h3>E-ink display live</h3><span class="when">Needs the display</span></div>
         <ul>
-          <li>A small Python client on the display Pi fetches the PNG and, using Pimoroni's <code>inky</code> library, refreshes the panel only when it has changed</li>
-          <li>Prototype on the spare Pi 4, move to a small board later</li>
+          <li>The display and its board run on a battery, so the client does as little as possible: wake on a timer, fetch the PNG with a conditional GET, refresh the panel only if the image changed, sleep. The hub's response says when to wake next (more often before commute times, not at all overnight)</li>
+          <li>A small Python client using Pimoroni's <code>inky</code> library passes the six-colour PNG to <code>set_image()</code>, which skips its own dithering for a six-colour palette image, then calls <code>show()</code> (up to 32 s per refresh)</li>
+          <li>Frozen-screen guard: e-ink keeps its last image without power, so if the client can't reach the hub or its battery is low, it draws a "not updating since …" banner before sleeping</li>
+          <li>Prototype on the spare Pi 4 (mains powered), then move to battery hardware (see Still to decide)</li>
+          <li>Check the tints and the text on them against the real inks, and compare with the library's own Floyd–Steinberg dithering</li>
           <li>Frame and mount it by the door</li>
-          <li>Display health: the client publishes a <code>service/display-client</code> heartbeat with the time of its last successful refresh, and <code>node-metrics</code> runs on the display Pi too</li>
+          <li>Display health: a sleeping device can't hold a Last Will, so it's judged by staleness. Each fetch reports its battery voltage and the time of its last successful refresh</li>
         </ul>
         <p class="outcome">The dashboard is on the wall.</p>
       </div>
@@ -360,8 +363,8 @@
     <div class="card"><h3>Node metrics</h3><p>Runs on every Linux node. Every 60 s it publishes the node's CPU, memory, temperature, throttling and disk use, plus memory and CPU for each systemd service it's configured to watch, read from systemd's own accounting.</p></div>
     <div class="card"><h3>Mosquitto</h3><p>The event bus. Retained messages hold the latest value on each topic, so new subscribers get current state straight away. Every payload carries an event ID and publisher timestamp.</p></div>
     <div class="card"><h3>Data service</h3><p>Subscribes to everything at QoS 1 with a persistent session, so the broker queues events while it restarts. Skips event IDs it has already stored, which covers retained resends and duplicate deliveries. It acknowledges each message only after writing it, so a crash means a redelivery, never a lost event. It's the only writer to the SQLite database.</p></div>
-    <div class="card"><h3>Renderer + HTTP</h3><p>Keeps the latest state in memory and tracks when it last heard from each source. It redraws the PNG when the status changes or when a source goes stale or recovers, then serves it. It doesn't depend on the database.</p></div>
-    <div class="card"><h3>Display Pi</h3><p>Pi with the Inky Impression 7.3" attached. A small Python script using Pimoroni's driver fetches the PNG and refreshes the panel only when the image has changed. This is the only part of the system not written in Rust.</p></div>
+    <div class="card"><h3>Renderer + HTTP</h3><p>Keeps the latest state in memory and tracks when it last heard from each source. It redraws the PNG when the status changes or when a source goes stale or recovers, then serves it with an <code>ETag</code>, so an unchanged image costs the display a <code>304 Not Modified</code> and no refresh. It does all the drawing and dithering, so the battery-powered display does almost nothing. It doesn't depend on the database.</p></div>
+    <div class="card"><h3>Display Pi</h3><p>Battery-powered board with the Inky Impression 7.3" attached. A small Python script using Pimoroni's driver wakes on a timer, fetches the PNG if it has changed, shows it and sleeps. This is the only part of the system not written in Rust.</p></div>
     <div class="card"><h3>Greenhouse nodes <span class="tag">Future</span></h3><p>Sensor and watering nodes (hardware to be chosen) publishing to the same bus. They keep a local fallback schedule if the hub is down.</p></div>
     <div class="card"><h3>Analytics</h3><p>Opens the SQLite file read-only, so it never blocks the data service. Its first use is the desk display's 24-hour sparklines. DuckDB can attach the same file for heavier analysis without running a second database.</p></div>
     <div class="card"><h3>Desk display</h3><p>A small LCD or similar on the desk. It subscribes to <code>node/</code> and <code>service/</code> topics for live health of every node and service, and draws 24-hour sparklines from analytics queries.</p></div>
@@ -499,6 +502,19 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
 </section>
 
 <section>
+  <h2>Dashboard design</h2>
+  <p class="muted">Decided on 1 Nov 2026 from mockups drawn pixel by pixel in the panel's six inks. The design page with the layout preview and the tint swatches: <a href="https://claude.ai/artifact/S9tXANh9Sew3AyomJhBBAz">Dashboard layout proposals</a>.</p>
+  <div class="components two">
+    <div class="card"><h3>Layout</h3><p>800 × 480. Tube board on the left: all 12 lines in alphabetical order, name then status. Weather on the right: now (icon, temperature, feels like, high and low, rain chance, wind) and the next 6 hours with rain-chance bars. Along the bottom, a 7-day strip of planned works, with one chip per line per day. Each panel shows when its data last changed. No date or clock, because the panel only redraws on change.</p></div>
+    <div class="card"><h3>Colour</h3><p>Each colour has one job, and words always go with it. Good: a green square. Minor: yellow block, black text. Severe: red block, white text. Closed: hatched, with the words on a white label. Unknown: dashed outline. Stale: colours removed and the header turned black with the time of the last update. Blue only for rain. Yellow (sun, lightning) always outlined in black.</p></div>
+    <div class="card"><h3>Tints (accent style)</h3><p>Extra colours come from ordered (Bayer 4 × 4) dithering of the inks: each line's TfL colour as a stripe beside its name and on the edge of its chips, and grey clouds. Fixed patterns, such as the closed hatch, are worked out from each pixel's position. Text, outlines and status blocks are always solid ink, because a 2-pixel letter stroke has no room for a pattern.</p></div>
+    <div class="card"><h3>Type and icons</h3><p>Atkinson Hyperlegible (SIL Open Font License, built into the renderer), bold for names. 13 px minimum, 16–20 px for lines and statuses, 64 px for the temperature. Text has hard edges. Weather icons are drawn in code from simple shapes with black outlines, with a moon after sunset. The hourly forecast ends at midnight.</p></div>
+    <div class="card"><h3>Drawing pipeline</h3><p>Renderer (Rust) fills in an SVG template, measuring text with the font to wrap and trim it. <code>resvg</code> draws it into pixels, then each pixel is snapped to an ink or replaced by its tint's pattern. The output is a PNG with exactly six palette colours (pure values, so the browser view matches the panel). JPEG isn't used: it's lossy and has no palette mode, so the inky library would dither it again. Built in two steps, full-colour PNG first.</p></div>
+    <div class="card"><h3>Display contract</h3><p><code>GET</code> the PNG with <code>If-None-Match</code>. The reply is a <code>304</code> if unchanged, otherwise the new image plus a hint for when to check next. The client passes the image to <code>set_image()</code> unchanged: for a six-colour palette image the library maps colours directly and skips its Floyd–Steinberg dithering. A raw buffer in the panel's native codes can be added later if the client becomes a microcontroller.</p></div>
+  </div>
+</section>
+
+<section>
   <h2>Development and deployment</h2>
   <p class="muted">There's no local copy of the system. Mosquitto runs only on the Pi 5, and whichever service you're working on runs on the dev machine and connects to it over the home network.</p>
 
@@ -613,7 +629,7 @@ CREATE INDEX events_topic_ts ON events(topic, ts);</pre>
   <h2>Still to decide</h2>
   <div class="card">
     <ul class="principles">
-      <li>How the dashboard is drawn and fitted to the 6-colour palette</li>
+      <li>Battery hardware for the display: a Pi Zero 2 W with a power board that switches it off and wakes it on a schedule (keeps the Python <code>inky</code> library), or Pimoroni's Inky Frame 7.3" (Pico 2 W microcontroller, about 20 µA asleep, MicroPython, Spectra 6 since August 2025, one forum report of RTC wake failing on battery). The Pi 4 prototype idles at about 3 W and can't sleep</li>
       <li>Day-to-day running: logging, health checks and backups</li>
       <li>Desk display hardware, and what drives it: software on its own board talking to the bus directly, or the hub's renderer serving it like the e-ink panel</li>
     </ul>
