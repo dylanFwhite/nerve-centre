@@ -35,6 +35,11 @@ impl Topics {
         format!("{}/weather/forecast", self.root)
     }
 
+    /// Resource use of one node
+    pub fn node_metrics(&self, name: &str) -> String {
+        format!("{}/node/{name}/metrics", self.root)
+    }
+
     /// Health of one service, e.g. `service("poller-tfl")`.
     pub fn service(&self, name: &str) -> String {
         format!("{}/service/{name}", self.root)
@@ -76,6 +81,10 @@ mod tests {
         assert_eq!(topics.tfl_status(), "home/tfl/status");
         assert_eq!(topics.tfl_planned(), "home/tfl/planned");
         assert_eq!(topics.weather_forecast(), "home/weather/forecast");
+        assert_eq!(
+            topics.node_metrics("nerve-centre"),
+            "home/node/nerve-centre/metrics"
+        );
         assert_eq!(topics.service("poller-tfl"), "home/service/poller-tfl");
         assert_eq!(topics.all_services(), "home/service/+");
         assert_eq!(topics.all(), "home/#");
