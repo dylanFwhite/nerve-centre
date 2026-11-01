@@ -1,6 +1,10 @@
 //! Node-wide figures, parsed from the text of Linux's `/proc` and `/sys`
 //! files. Parsing is kept apart from reading, so it's tested on any OS.
 
+use std::io;
+use std::process::Command;
+
+use nerve_core::payloads::node::{Throttle, ThrottleFlag};
 use thiserror::Error;
 
 /// A source's text wasn't in the expected format. Names the source.
@@ -91,6 +95,120 @@ fn first_number(text: &str) -> Option<f64> {
     text.split_whitespace().next()?.parse().ok()
 }
 
+/// Bit positions in `vcgencmd get_throttled` value
+const THROTTLE_BITS: [(u32, ThrottleFlag); 4] = [
+    (0, ThrottleFlag::UnderVoltage),
+    (1, ThrottleFlag::FreqCapped),
+    (2, ThrottleFlag::Throttled),
+    (3, ThrottleFlag::SoftTempLimit),
+];
+
+/// Parses `vcgencmd get_throttled` output, e.g. `throttled=0x50005`.
+pub fn parse_throttled(output: &str) -> Result<Throttle, ParseError> {
+    let bits = output
+        .trim()
+        .strip_prefix("throttled=0x")
+        .and_then(|hex| u32::from_str_radix(hex, 16).ok())
+        .ok_or(ParseError("vcgencmg get_throttled"))?;
+
+    Ok(Throttle {
+        now: throttle_flags(bits),
+        since_boot: throttle_flags(bits >> 16),
+    })
+}
+
+fn throttle_flags(bits: u32) -> Vec<ThrottleFlag> {
+    THROTTLE_BITS
+        .iter()
+        .filter(|(bit, _)| bits & (1 << bit) != 0)
+        .map(|&(_, flag)| flag)
+        .collect()
+}
+
+/// Percentage of disk space used
+pub fn disk_used_pct(total: u64, free: u64, available: u64) -> f64 {
+    let used = total.saturating_sub(free);
+    let usable = used + available;
+    if usable == 0 {
+        return 0.0;
+    }
+    used as f64 / usable as f64 * 100.0
+}
+
+// Reading the sources - Requires a linux node
+
+const STAT: &str = "/proc/stat";
+const MEMINFO: &str = "/proc/meminfo";
+const LOADAVG: &str = "/proc/loadavg";
+const UPTIME: &str = "/proc/uptime";
+const THERMAL: &str = "/sys/class/thermal/thermal_zone0/temp";
+const DISK: &str = "/";
+
+#[derive(Debug, Error)]
+pub enum ReadError {
+    #[error("can't read {path}: {source}")]
+    Io {
+        path: &'static str,
+        source: io::Error,
+    },
+    #[error(transparent)]
+    Parse(#[from] ParseError),
+}
+
+#[derive(Debug)]
+pub struct Reading {
+    pub cpu: CpuTimes,
+    pub load_1m: f64,
+    pub mem_used_mb: u64,
+    pub mem_total_mb: u64,
+    pub temp_c: Option<f64>,
+    pub throttle: Option<Throttle>,
+    pub disk_used_pct: f64,
+    pub uptime_s: u64,
+}
+
+impl Reading {
+    pub fn take() -> Result<Self, ReadError> {
+        let (mem_used_mb, mem_total_mb) = parse_memory(&read_file(MEMINFO)?)?;
+        Ok(Self {
+            cpu: CpuTimes::parse(&read_file(STAT)?)?,
+            load_1m: parse_load_1m(&read_file(LOADAVG)?)?,
+            mem_used_mb,
+            mem_total_mb,
+            temp_c: read_file(THERMAL)
+                .ok()
+                .and_then(|text| parse_temp(&text).ok()),
+            throttle: read_throttle(),
+            disk_used_pct: read_disk_used_pct()?,
+            uptime_s: parse_uptime(&read_file(UPTIME)?)?,
+        })
+    }
+}
+
+fn read_file(path: &'static str) -> Result<String, ReadError> {
+    std::fs::read_to_string(path).map_err(|source| ReadError::Io { path, source })
+}
+
+fn read_throttle() -> Option<Throttle> {
+    let output = Command::new("vcgencmd")
+        .arg("get_throttled")
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    parse_throttled(&String::from_utf8_lossy(&output.stdout)).ok()
+}
+
+fn read_disk_used_pct() -> Result<f64, ReadError> {
+    let stats = fs4::statvfs(DISK).map_err(|source| ReadError::Io { path: DISK, source })?;
+    Ok(disk_used_pct(
+        stats.total_space(),
+        stats.free_space(),
+        stats.available_space(),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,5 +265,39 @@ mod tests {
         assert_eq!(load, 1.0);
         assert_eq!(uptime, 901865);
         assert_eq!(temp, 47.4);
+    }
+
+    #[test]
+    fn decodes_throttle_flags() {
+        // Bits 0 and 2 now, and bits 16 and 18 since boot.
+        let throttle = parse_throttled("throttled=0x50005\n").unwrap();
+
+        assert_eq!(
+            throttle.now,
+            [ThrottleFlag::UnderVoltage, ThrottleFlag::Throttled]
+        );
+        assert_eq!(
+            throttle.since_boot,
+            [ThrottleFlag::UnderVoltage, ThrottleFlag::Throttled]
+        );
+    }
+
+    #[test]
+    fn all_clear_is_two_empty_lists() {
+        let throttle = parse_throttled("throttled=0x0\n").unwrap();
+
+        assert!(throttle.now.is_empty());
+        assert!(throttle.since_boot.is_empty());
+        assert!(parse_throttled("Can't open device file").is_err());
+    }
+
+    #[test]
+    fn calculates_disk_use_as_df_does() {
+        // From `df -B1 /` on the hub: 1B-blocks, Used and Available.
+        let (total, used, available) = (250368110592, 4244377600, 233331195904);
+        let pct = disk_used_pct(total, total - used, available);
+
+        // 1.79%, which df rounds up to 2%.
+        assert!((pct - 1.79).abs() < 0.01, "{pct}");
     }
 }
