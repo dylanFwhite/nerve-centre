@@ -830,6 +830,7 @@ name = "node-metrics"
 version = "0.1.0"
 dependencies = [
  "nerve-core",
+ "thiserror",
 ]
 
 [[package]]
