@@ -845,9 +845,12 @@ dependencies = [
 name = "node-metrics"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "fs4",
  "nerve-core",
+ "serde",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]

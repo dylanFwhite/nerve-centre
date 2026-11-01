@@ -143,6 +143,7 @@ const LOADAVG: &str = "/proc/loadavg";
 const UPTIME: &str = "/proc/uptime";
 const THERMAL: &str = "/sys/class/thermal/thermal_zone0/temp";
 const DISK: &str = "/";
+const HOSTNAME: &str = "/proc/sys/kernel/hostname";
 
 #[derive(Debug, Error)]
 pub enum ReadError {
@@ -188,6 +189,10 @@ impl Reading {
             uptime_s: parse_uptime(&read_file(UPTIME)?)?,
         })
     }
+}
+
+pub fn hostname() -> Result<String, ReadError> {
+    Ok(read_file(HOSTNAME)?.trim().to_string())
 }
 
 fn read_file(path: &'static str) -> Result<String, ReadError> {
